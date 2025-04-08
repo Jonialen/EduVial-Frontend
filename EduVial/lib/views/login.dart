@@ -1,4 +1,4 @@
-import 'package:eduvial/screens/register.dart';
+import 'package:eduvial/views/register.dart';
 import 'package:flutter/material.dart';
 
 
@@ -29,7 +29,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.blue, // 🎨 Aquí cambias el color
+        backgroundColor: Colors.blue, // 🎨
         elevation: 4, // Sombra debajo
       ),
       body: Center(
@@ -40,9 +40,9 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               // Imagen centrada
               Image.asset(
-                'assets/images/logo.png', // Asegúrate de que la ruta sea correcta
-                height: 150, // Ajusta el tamaño de la imagen
-                width: 150,
+                'assets/images/logo.png',
+                height: 350, // Ajusta el tamaño de la imagen
+                width: 350,
               ),
               const SizedBox(height: 32), // Espacio entre la imagen y los campos de texto
               // Campos de texto para el correo y la contraseña
@@ -67,6 +67,10 @@ class _LoginScreenState extends State<LoginScreen> {
               ElevatedButton(
                 onPressed: _onLoginPressed,
                 child: const Text('Iniciar sesión'),
+              ),
+              ElevatedButton(
+                onPressed: _onLoginPressed,
+                child: const Text('Ingresar como invitado'),
               ),
               TextButton(
                 onPressed: _onRegisterPressed,
