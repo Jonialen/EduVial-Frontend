@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'Screens/login.dart';
+import 'views//login.dart';
 
 //Preview
 void main() {
