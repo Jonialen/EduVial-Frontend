@@ -16,8 +16,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String? selectedLevel; //
 
   void _onClick() async {
-    final name = emailController.text.trim();
-    final email = passwordController.text.trim();
+    final name = nameController.text.trim();
+    final email = emailController.text.trim();
     final password = passwordController.text.trim();
 
     if (selectedLevel == null) {
@@ -31,7 +31,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       name: name,
       email: email,
       password: password,
-      role: selectedLevel!, // Aseguramos que no es null
+      role: selectedLevel!.toLowerCase(),
     );
 
     final result = await auth_controller.register(user);

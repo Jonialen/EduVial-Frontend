@@ -1,10 +1,10 @@
 // lib/models/user.dart
 class User {
-         // ID único (generalmente lo asigna el backend)
+         // ID único (asigna el backend)
   final String name;
   final String email;
   final String password;
-  final String role;       // Ej: "admin", "user", "guest"
+  final String role;       // Ej: "principiante", "user"
 
   User({
 
@@ -31,7 +31,7 @@ class User {
 
       name: json['name'],
       email: json['email'],
-      password: json['password'] ?? '', // Útil para respuestas que no incluyen password
+      password: json['password'] ?? '',
       role: json['role'],
     );
   }
