@@ -1,5 +1,6 @@
 import 'package:eduvial/views/register.dart';
 import 'package:flutter/material.dart';
+import 'package:eduvial/controllers/auth_controller.dart';
 
 
 class LoginScreen extends StatefulWidget {
@@ -13,11 +14,34 @@ class _LoginScreenState extends State<LoginScreen> {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
 
-  void _onLoginPressed() {
+  void _onLoginPressed() async {
     final email = emailController.text.trim();
     final password = passwordController.text.trim();
-    print("Intentando iniciar sesión con: $email - $password");
+
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Por favor completa todos los campos')),
+      );
+      return;
+    }
+
+    final result = await auth_controller.login(email, password);
+
+    if (result['success']) {
+      // Login exitoso, puedes navegar a la pantalla principal
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('¡Inicio de sesión exitoso!')),
+      );
+      // Aquí podrías redirigir a otra pantalla:
+      // Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => HomeScreen()));
+    } else {
+      // Mostrar el error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result['error'])),
+      );
+    }
   }
+
 
   void _onRegisterPressed() {
     Navigator.push(
