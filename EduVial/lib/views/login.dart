@@ -1,6 +1,7 @@
 import 'package:eduvial/views/register.dart';
 import 'package:flutter/material.dart';
 import 'package:eduvial/controllers/auth_controller.dart';
+import 'package:eduvial/views/menu.dart';
 
 
 class LoginScreen extends StatefulWidget {
@@ -28,12 +29,14 @@ class _LoginScreenState extends State<LoginScreen> {
     final result = await auth_controller.login(email, password);
 
     if (result['success']) {
-      // Login exitoso, puedes navegar a la pantalla principal
+      // Login exitoso
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('¡Inicio de sesión exitoso!')),
+
       );
-      // Aquí podrías redirigir a otra pantalla:
-      // Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => HomeScreen()));
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => Menu()));
+
+
     } else {
       // Mostrar el error
       ScaffoldMessenger.of(context).showSnackBar(
