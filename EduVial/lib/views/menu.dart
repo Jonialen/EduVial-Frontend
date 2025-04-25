@@ -75,8 +75,7 @@ class Menu extends StatelessWidget {
                         onTap: () {
                           // Acción al presionar el botón EMPEZAR
                           debugPrint('Botón EMPEZAR presionado');
-                          // Aquí podrías navegar a la siguiente pantalla
-                          // Navigator.push(context, MaterialPageRoute(builder: (context) => NextScreen()));
+                         
                         },
                         child: Container(
                           width: 70,
@@ -133,8 +132,7 @@ class Menu extends StatelessWidget {
                         onTap: () {
                           // Acción al presionar el botón LECCIONES
                           debugPrint('Botón LECCIONES presionado');
-                          // Aquí podrías navegar a otra pantalla
-                          // Navigator.push(context, MaterialPageRoute(builder: (context) => LessonsScreen()));
+                          
                         },
                         child: Container(
                           width: 70,
