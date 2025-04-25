@@ -30,7 +30,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (result['success']) {
       // Login exitoso
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('¡Inicio de sesión exitoso!')),
 

@@ -6,6 +6,6 @@ import 'package:eduvial/views/menu.dart';
 void main() {
   runApp(const MaterialApp(
     debugShowCheckedModeBanner: false,
-    home: Menu(),
+    home: LoginScreen(),
   ));
 }
