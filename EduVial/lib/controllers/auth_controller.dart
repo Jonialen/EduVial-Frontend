@@ -1,7 +1,7 @@
-import 'package:http/http.dart' as http;  // El 'as http' es opcional pero recomendado
+import 'package:http/http.dart' as http;
 import 'dart:convert';
-import '../models/user.dart'; // Asegúrate de tener este modelo
-import '../config/constants.dart'; // Donde defines las URLs (ej: ApiConstants.baseUrl)
+import '../models/user.dart';
+import '../config/constants.dart';
 
 class auth_controller {
   // 1. Función para Login ----------------------------------
