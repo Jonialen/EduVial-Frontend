@@ -1,6 +1,7 @@
 import 'package:eduvial/views/SignalModule.dart';
 import 'package:flutter/material.dart';
 import 'package:eduvial/views/simulation_screen.dart';
+import 'package:eduvial/views/UserProfile.dart';
 
 class Menu extends StatefulWidget {
   const Menu({Key? key}) : super(key: key);
@@ -180,9 +181,19 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
                         color: const Color(0xFF1565C0),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(
-                        Icons.list_alt,
-                        color: Colors.white,
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.person,
+                          color: Colors.white,
+                        ),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ProfileScreen(),
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ],
