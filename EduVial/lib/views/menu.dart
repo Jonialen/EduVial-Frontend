@@ -1,3 +1,4 @@
+import 'package:eduvial/views/SignalModule.dart';
 import 'package:flutter/material.dart';
 import 'package:eduvial/views/simulation_screen.dart';
 
@@ -80,8 +81,12 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
         'icono': Icons.traffic,
         'color': Colors.orangeAccent,
         'onTap': () {
-          // Navegar a la pantalla de señales (aún no implementada)
-          debugPrint('Navegando a señales de $nivel');
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => Signalmodule(nivel: nivel.toLowerCase()),
+            ),
+          );
         },
       },
       {
