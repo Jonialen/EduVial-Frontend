@@ -2,9 +2,11 @@ import 'package:eduvial/views/SignalModule.dart';
 import 'package:flutter/material.dart';
 import 'package:eduvial/views/simulation_screen.dart';
 import 'package:eduvial/views/UserProfile.dart';
+import 'package:eduvial/controllers/global_identifier.dart';
 
 class Menu extends StatefulWidget {
   const Menu({Key? key}) : super(key: key);
+
 
   @override
   State<Menu> createState() => _MenuState();
@@ -72,7 +74,7 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => SimulationScreen(nivel: nivel.toLowerCase()),
+              builder: (context) => SimulationScreen(rol: nivel.toLowerCase()),
             ),
           );
         },
@@ -232,7 +234,10 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
                         const SizedBox(height: 10),
                         // Círculo con estrella (botón 1)
                         InkWell(
-                          onTap: _togglePrincipianteSubmodulos,
+                          onTap: () {
+                            global_identifier.counter = 0;
+                            _togglePrincipianteSubmodulos();
+                          },
                           child: Container(
                             width: 70,
                             height: 70,
@@ -288,7 +293,10 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
                         ),
                         const SizedBox(height: 10),
                         InkWell(
-                          onTap: _toggleAvanzadoSubmodulos,
+                          onTap: () {
+                            global_identifier.counter = 1; // <-- Esta es la única línea nueva
+                            _toggleAvanzadoSubmodulos();
+                          },
                           child: Container(
                             width: 70,
                             height: 70,

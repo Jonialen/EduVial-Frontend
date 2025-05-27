@@ -7,33 +7,42 @@ class auth_controller {
   // 1. Función para Login ----------------------------------
   static Future<Map<String, dynamic>> login(String email, String password) async {
     try {
+      final body = jsonEncode({
+        'email': email,
+        'password': password,
+      });
+
+      print('🔹 JSON enviado al backend: $body');
+
       final response = await http.post(
         Uri.parse(ApiConstants.loginEndpoint),
-        body: jsonEncode({
-          'email': email,
-          'password': password,
-        }),
+        body: body,
         headers: {'Content-Type': 'application/json'},
       );
+
+      print('🔹 Status code: ${response.statusCode}');
+      print('🔹 Respuesta del backend: ${response.body}');
 
       if (response.statusCode == 200) {
         return {
           'success': true,
-          'data': jsonDecode(response.body), // Token o datos del usuario
+          'data': jsonDecode(response.body),
         };
       } else {
         return {
           'success': false,
-          'error': 'Credenciales incorrectas', // Mensaje de error del backend
+          'error': 'Credenciales incorrectas',
         };
       }
     } catch (e) {
+      print('🔸 Error de conexión: $e');
       return {
         'success': false,
         'error': 'Error de conexión: $e',
       };
     }
   }
+
 
   // 2. Función para Register -------------------------------
   static Future<Map<String, dynamic>> register(User user) async {

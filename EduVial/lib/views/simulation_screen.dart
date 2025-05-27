@@ -1,375 +1,247 @@
+import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import '../models/pregunta.dart';
+import 'package:eduvial/controllers/global_identifier.dart';
 
 class SimulationScreen extends StatefulWidget {
-  final String nivel; // "principiante" o "avanzado"
+  final String rol;
 
-  const SimulationScreen({
-    Key? key,
-    required this.nivel,
-  }) : super(key: key);
+  const SimulationScreen({Key? key, required this.rol}) : super(key: key);
 
   @override
-  State<SimulationScreen> createState() => _SimulationScreenState();
+  _SimulationScreenState createState() => _SimulationScreenState();
 }
 
 class _SimulationScreenState extends State<SimulationScreen> {
-  // En el futuro, estas preguntas vendrán de una API
-  // Este es solo un ejemplo de la estructura de datos esperada
-  final List<Map<String, dynamic>> preguntasPrincipiante = [
-    {
-      'imagen': 'assets/images/simulaciones/principiante1.jpg',
-      'pregunta': '¿Qué debe hacer en esta intersección?',
-      'opciones': [
-        'Avanzar sin detenerse',
-        'Detenerse completamente y ceder el paso',
-        'Acelerar para pasar rápidamente',
-        'Tocar el claxon y seguir'
-      ],
-      'respuestaCorrecta': 1,
-      'explicacion': 'En una señal de ALTO, debes detenerte completamente y ceder el paso a los vehículos que tienen la preferencia.'
-    },
-    {
-      'imagen': 'assets/images/simulaciones/principiante2.jpg',
-      'pregunta': 'En esta situación con lluvia, ¿qué debe hacer?',
-      'opciones': [
-        'Mantener la misma velocidad',
-        'Aumentar la velocidad',
-        'Reducir la velocidad y aumentar la distancia de seguimiento',
-        'Encender las luces altas'
-      ],
-      'respuestaCorrecta': 2,
-      'explicacion': 'En condiciones de lluvia, se debe reducir la velocidad y aumentar la distancia de seguimiento para compensar la menor tracción y mayor distancia de frenado.'
-    },
-    {
-      'imagen': 'assets/images/simulaciones/principiante3.jpg',
-      'pregunta': '¿Qué significa esta señal de tránsito?',
-      'opciones': [
-        'Prohibido el paso',
-        'Ceda el paso',
-        'No estacionar',
-        'Zona escolar'
-      ],
-      'respuestaCorrecta': 1,
-      'explicacion': 'La señal triangular invertida indica "Ceda el paso", lo que significa que debe reducir la velocidad y dar prioridad a los vehículos en la vía a la que se incorpora.'
-    },
-  ];
+  List<Pregunta> preguntas = [];
+  bool cargando = true;
+  String error = '';
+  Pregunta? preguntaActual;
+  List<OpcionRespuesta> opciones = [];
+  int? opcionSeleccionada;
+  bool respuestaMostrada = false;
 
-  // En el futuro, estas preguntas vendrán de una API
-  final List<Map<String, dynamic>> preguntasAvanzado = [
-    {
-      'imagen': 'assets/images/simulaciones/avanzado1.jpg',
-      'pregunta': 'En esta glorieta, ¿quién tiene la preferencia de paso?',
-      'opciones': [
-        'Los vehículos que están dentro de la glorieta',
-        'Los vehículos que van a entrar a la glorieta',
-        'Los vehículos más grandes',
-        'Los vehículos que vienen por la derecha'
-      ],
-      'respuestaCorrecta': 0,
-      'explicacion': 'En una glorieta, los vehículos que ya están circulando dentro tienen preferencia sobre los que pretenden entrar.'
-    },
-    {
-      'imagen': 'assets/images/simulaciones/avanzado2.jpg',
-      'pregunta': 'En esta situación de adelantamiento, ¿qué acción es correcta?',
-      'opciones': [
-        'Adelantar por la derecha aprovechando el espacio',
-        'Acelerar para adelantar antes de la curva',
-        'Esperar a tener visibilidad completa antes de adelantar',
-        'Tocar el claxon para advertir y adelantar'
-      ],
-      'respuestaCorrecta': 2,
-      'explicacion': 'Siempre se debe esperar a tener visibilidad completa antes de realizar un adelantamiento, nunca adelantar en curvas o con visibilidad reducida.'
-    },
-    {
-      'imagen': 'assets/images/simulaciones/avanzado3.jpg',
-      'pregunta': 'Con esta señalización en obra, ¿qué debe hacer?',
-      'opciones': [
-        'Mantener la velocidad para no entorpecer el tráfico',
-        'Reducir la velocidad y seguir las indicaciones',
-        'Buscar una ruta alternativa',
-        'Adelantar a los vehículos que van despacio'
-      ],
-      'respuestaCorrecta': 1,
-      'explicacion': 'En zonas de obras, se debe reducir la velocidad y seguir estrictamente las indicaciones de la señalización temporal y de los operarios.'
-    },
-  ];
-
-  int preguntaActual = 0;
-  int puntuacion = 0;
-  bool respondido = false;
-  int? seleccionUsuario;
-  bool mostrarExplicacion = false;
-
-  // Obtener la lista de preguntas según el nivel
-  List<Map<String, dynamic>> get preguntas {
-    return widget.nivel == 'principiante' ? preguntasPrincipiante : preguntasAvanzado;
+  @override
+  void initState() {
+    super.initState();
+    cargarPreguntas();
   }
 
-  void verificarRespuesta(int opcionSeleccionada) {
-    if (respondido) return; // Evitar múltiples respuestas
+  String getNivelDesdeRol(String rol) {
+    if (global_identifier.counter==0) return 'Básico';
+    if (global_identifier.counter==1) return 'Avanzado';
+    return 'Intermedio';
+  }
 
-    setState(() {
-      respondido = true;
-      seleccionUsuario = opcionSeleccionada;
-      mostrarExplicacion = true;
+  Future<void> cargarOpciones(int preguntaId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('https://dev.eduvial.space/api/quest/$preguntaId/options'),
+      );
 
-      if (opcionSeleccionada == preguntas[preguntaActual]['respuestaCorrecta']) {
-        puntuacion++;
+      if (response.statusCode == 200) {
+        final List<dynamic> datos = json.decode(response.body);
+        setState(() {
+          opciones = datos.map((json) => OpcionRespuesta.fromJson(json)).toList();
+          opcionSeleccionada = null;
+          respuestaMostrada = false;
+        });
       }
+    } catch (e) {
+      print('Error al cargar opciones: $e');
+    }
+  }
+
+  Future<void> cargarPreguntas() async {
+    setState(() {
+      cargando = true;
+      error = '';
+    });
+
+    try {
+      final response = await http.get(
+        Uri.parse('https://dev.eduvial.space/api/quest'),
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final List datos = json.decode(response.body);
+        final todasLasPreguntas = datos
+            .where((json) => json != null)
+            .map((json) => Pregunta.fromJson(json))
+            .toList();
+
+        final nivelUsuario = getNivelDesdeRol(widget.rol);
+        final preguntasFiltradas = todasLasPreguntas
+            .where((p) => p.lvl == nivelUsuario)
+            .toList();
+
+        if (preguntasFiltradas.isNotEmpty) {
+          final random = Random();
+          final pregunta = preguntasFiltradas[random.nextInt(preguntasFiltradas.length)];
+
+          setState(() {
+            preguntas = preguntasFiltradas;
+            preguntaActual = pregunta;
+            cargando = false;
+          });
+
+          await cargarOpciones(pregunta.id);
+        } else {
+          setState(() {
+            error = 'No hay preguntas para tu nivel (${widget.rol})';
+            cargando = false;
+          });
+        }
+      } else {
+        throw Exception('Error al cargar preguntas');
+      }
+    } catch (e) {
+      setState(() {
+        error = 'Error: ${e.toString()}';
+        cargando = false;
+      });
+    }
+  }
+
+  void seleccionarOpcion(int index) {
+    if (!respuestaMostrada) {
+      setState(() {
+        opcionSeleccionada = index;
+      });
+    }
+  }
+
+  void mostrarRespuesta() {
+    setState(() {
+      respuestaMostrada = true;
     });
   }
 
   void siguientePregunta() {
-    if (preguntaActual < preguntas.length - 1) {
-      setState(() {
-        preguntaActual++;
-        respondido = false;
-        seleccionUsuario = null;
-        mostrarExplicacion = false;
-      });
-    } else {
-      // Mostrar resultados finales cuando se completan todas las preguntas
-      mostrarResultados();
-    }
-  }
+    if (preguntas.isEmpty) return;
 
-  void mostrarResultados() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Simulación Completada'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Has completado la simulación de nivel ${widget.nivel}'),
-              const SizedBox(height: 16),
-              Text(
-                'Tu puntuación: $puntuacion de ${preguntas.length}',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: puntuacion > (preguntas.length / 2) ? Colors.green : Colors.red,
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(); // Cerrar el diálogo
-                Navigator.of(context).pop(); // Volver a la pantalla anterior
-              },
-              child: const Text('Volver al menú'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop(); // Cerrar el diálogo
-                // Reiniciar la simulación
-                setState(() {
-                  preguntaActual = 0;
-                  puntuacion = 0;
-                  respondido = false;
-                  seleccionUsuario = null;
-                  mostrarExplicacion = false;
-                });
-              },
-              child: const Text('Intentar de nuevo'),
-            ),
-          ],
-        );
-      },
-    );
+    final random = Random();
+    final pregunta = preguntas[random.nextInt(preguntas.length)];
+
+    setState(() {
+      preguntaActual = pregunta;
+      respuestaMostrada = false;
+      opcionSeleccionada = null;
+    });
+
+    cargarOpciones(pregunta.id);
   }
 
   @override
   Widget build(BuildContext context) {
-    final preguntaActualData = preguntas[preguntaActual];
+    if (cargando) {
+      return Scaffold(
+        appBar: AppBar(title: Text("Simulación - ${widget.rol}")),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (error.isNotEmpty) {
+      return Scaffold(
+        appBar: AppBar(title: Text("Simulación - ${widget.rol}")),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(error),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: cargarPreguntas,
+                child: const Text('Reintentar'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Simulación ${widget.nivel.toUpperCase()}'),
-        backgroundColor: Colors.blue,
-        elevation: 4,
-      ),
-      body: Column(
-        children: [
-          // Indicador de progreso
-          LinearProgressIndicator(
-            value: (preguntaActual + 1) / preguntas.length,
-            backgroundColor: Colors.grey[300],
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+        title: Text("Simulación - ${widget.rol}"),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: siguientePregunta,
+            tooltip: 'Siguiente pregunta',
           ),
-
-          // Contenedor principal con scroll
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Contador de preguntas
-                  Text(
-                    'Pregunta ${preguntaActual + 1} de ${preguntas.length}',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.grey[700],
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Imagen de la situación
-                  Container(
-                    height: 200,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.asset(
-                        preguntaActualData['imagen'],
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Pregunta
-                  Text(
-                    preguntaActualData['pregunta'],
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Opciones de respuesta
-                  ...List.generate(
-                    preguntaActualData['opciones'].length,
-                        (index) {
-                      final bool esCorrecta = index == preguntaActualData['respuestaCorrecta'];
-                      final bool seleccionada = seleccionUsuario == index;
-
-                      // Determinar el color del botón según el estado
-                      Color? buttonColor;
-                      if (respondido) {
-                        if (esCorrecta) {
-                          buttonColor = Colors.green[100];
-                        } else if (seleccionada) {
-                          buttonColor = Colors.red[100];
-                        }
-                      }
-
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8.0),
-                        child: ElevatedButton(
-                          onPressed: respondido ? null : () => verificarRespuesta(index),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: buttonColor,
-                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                            alignment: Alignment.centerLeft,
-                          ),
-                          child: Row(
-                            children: [
-                              // Indicador de opción (A, B, C, D)
-                              Container(
-                                width: 30,
-                                height: 30,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: Colors.blue[800],
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    String.fromCharCode('A'.codeUnitAt(0) + index),
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              // Texto de la opción
-                              Expanded(
-                                child: Text(
-                                  preguntaActualData['opciones'][index],
-                                  style: const TextStyle(fontSize: 16),
-                                ),
-                              ),
-
-                              // Icono de correcto/incorrecto si ya respondió
-                              if (respondido)
-                                Icon(
-                                  esCorrecta ? Icons.check_circle : (seleccionada ? Icons.cancel : null),
-                                  color: esCorrecta ? Colors.green : (seleccionada ? Colors.red : null),
-                                ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-
-                  // Explicación de la respuesta correcta
-                  if (mostrarExplicacion) ...[
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.blue[50],
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.blue),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Explicación:',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            preguntaActualData['explicacion'],
-                            style: const TextStyle(fontSize: 15),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-
-          // Botón para continuar
-          if (respondido)
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: ElevatedButton(
-                onPressed: siguientePregunta,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  minimumSize: const Size(double.infinity, 50),
-                ),
-                child: Text(
-                  preguntaActual < preguntas.length - 1 ? 'Siguiente Pregunta' : 'Ver Resultados',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
         ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (preguntaActual != null) ...[
+              Card(
+                elevation: 4,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        preguntaActual!.txt,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      //Text("Categoría: ${preguntaActual!.cat}"),
+                      Text("Nivel: ${preguntaActual!.lvl}"),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                "Opciones:",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 10),
+              ...opciones.asMap().entries.map((entry) {
+                final index = entry.key;
+                final opcion = entry.value;
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  color: respuestaMostrada && opcion.correct == true
+                      ? Colors.green[100]
+                      : (opcionSeleccionada == index
+                      ? (respuestaMostrada
+                      ? Colors.red[100]
+                      : Colors.blue[100])
+                      : null),
+                  child: ListTile(
+                    title: Text(opcion.txt),
+                    onTap: () => seleccionarOpcion(index),
+                  ),
+                );
+              }),
+              const SizedBox(height: 20),
+              if (opcionSeleccionada != null && !respuestaMostrada)
+                Center(
+                  child: ElevatedButton(
+                    onPressed: mostrarRespuesta,
+                    child: const Text('Verificar respuesta'),
+                  ),
+                ),
+              if (respuestaMostrada)
+                Center(
+                  child: ElevatedButton(
+                    onPressed: siguientePregunta,
+                    child: const Text('Siguiente Pregunta'),
+                  ),
+                ),
+            ],
+          ],
+        ),
       ),
     );
   }
