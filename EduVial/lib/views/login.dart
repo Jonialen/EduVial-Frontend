@@ -68,7 +68,7 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               // Imagen centrada
               Image.asset(
-                'assets/images/logo.png',
+                'assets/images/Logo-refac.png',
                 height: 350, // Ajusta el tamaño de la imagen
                 width: 350,
               ),
