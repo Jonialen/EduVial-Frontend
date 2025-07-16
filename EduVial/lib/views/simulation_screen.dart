@@ -194,7 +194,7 @@ class _SimulationScreenState extends State<SimulationScreen> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      //Text("Categoría: ${preguntaActual!.cat}"),
+                      //gText("Categoría: ${preguntaActual!.cat}"),
                       Text("Nivel: ${preguntaActual!.lvl}"),
                     ],
                   ),
