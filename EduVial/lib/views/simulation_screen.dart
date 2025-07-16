@@ -1,12 +1,14 @@
-import 'dart:convert';
-import 'dart:math';
-import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import '../models/pregunta.dart';
-import 'package:eduvial/controllers/global_identifier.dart';
+// Importación de librerías necesarias
+import 'dart:convert'; // Para decodificar respuestas JSON
+import 'dart:math'; // Para generar números aleatorios
+import 'package:flutter/material.dart'; // Para UI en Flutter
+import 'package:http/http.dart' as http; // Para hacer peticiones HTTP
+import '../models/pregunta.dart'; // Modelo de datos de las preguntas
+import 'package:eduvial/controllers/global_identifier.dart'; // Variable global para identificar nivel
 
+// Widget principal de tipo Stateful para mostrar simulaciones según el rol
 class SimulationScreen extends StatefulWidget {
-  final String rol;
+  final String rol; // El rol define el nivel de dificultad
 
   const SimulationScreen({Key? key, required this.rol}) : super(key: key);
 
@@ -14,27 +16,31 @@ class SimulationScreen extends StatefulWidget {
   _SimulationScreenState createState() => _SimulationScreenState();
 }
 
+// Estado del widget SimulationScreen
 class _SimulationScreenState extends State<SimulationScreen> {
-  List<Pregunta> preguntas = [];
-  bool cargando = true;
-  String error = '';
-  Pregunta? preguntaActual;
-  List<OpcionRespuesta> opciones = [];
-  int? opcionSeleccionada;
-  bool respuestaMostrada = false;
+  List<Pregunta> preguntas = []; // Lista de todas las preguntas filtradas
+  bool cargando = true; // Estado de carga de los datos
+  String error = ''; // Mensaje de error si ocurre
+  Pregunta? preguntaActual; // Pregunta actualmente mostrada
+  List<OpcionRespuesta> opciones = []; // Opciones para la pregunta actual
+  int? opcionSeleccionada; // Índice de opción que el usuario seleccionó
+  bool respuestaMostrada = false; // Si ya se mostró la respuesta correcta
 
+  // Se ejecuta al iniciar el widget
   @override
   void initState() {
     super.initState();
-    cargarPreguntas();
+    cargarPreguntas(); // Carga las preguntas al iniciar
   }
 
+  // Método que obtiene el nivel según la variable global
   String getNivelDesdeRol(String rol) {
     if (global_identifier.counter==0) return 'Básico';
     if (global_identifier.counter==1) return 'Avanzado';
     return 'Intermedio';
   }
 
+  // Método que obtiene las opciones para una pregunta dada
   Future<void> cargarOpciones(int preguntaId) async {
     try {
       final response = await http.get(
@@ -54,6 +60,7 @@ class _SimulationScreenState extends State<SimulationScreen> {
     }
   }
 
+  // Método que carga todas las preguntas y filtra por nivel
   Future<void> cargarPreguntas() async {
     setState(() {
       cargando = true;
@@ -63,7 +70,7 @@ class _SimulationScreenState extends State<SimulationScreen> {
     try {
       final response = await http.get(
         Uri.parse('https://dev.eduvial.space/api/quest'),
-      ).timeout(const Duration(seconds: 15));
+      ).timeout(const Duration(seconds: 15)); // Límite de espera
 
       if (response.statusCode == 200) {
         final List datos = json.decode(response.body);
@@ -105,6 +112,7 @@ class _SimulationScreenState extends State<SimulationScreen> {
     }
   }
 
+  // Método para seleccionar una opción
   void seleccionarOpcion(int index) {
     if (!respuestaMostrada) {
       setState(() {
@@ -113,12 +121,14 @@ class _SimulationScreenState extends State<SimulationScreen> {
     }
   }
 
+  // Método para mostrar si la respuesta fue correcta
   void mostrarRespuesta() {
     setState(() {
       respuestaMostrada = true;
     });
   }
 
+  // Muestra una nueva pregunta aleatoria
   void siguientePregunta() {
     if (preguntas.isEmpty) return;
 
@@ -134,8 +144,10 @@ class _SimulationScreenState extends State<SimulationScreen> {
     cargarOpciones(pregunta.id);
   }
 
+  // Interfaz de usuario
   @override
   Widget build(BuildContext context) {
+    // Si se está cargando, mostrar indicador de carga
     if (cargando) {
       return Scaffold(
         appBar: AppBar(title: Text("Simulación - ${widget.rol}")),
@@ -143,6 +155,7 @@ class _SimulationScreenState extends State<SimulationScreen> {
       );
     }
 
+    // Si hubo un error al cargar
     if (error.isNotEmpty) {
       return Scaffold(
         appBar: AppBar(title: Text("Simulación - ${widget.rol}")),
@@ -162,6 +175,7 @@ class _SimulationScreenState extends State<SimulationScreen> {
       );
     }
 
+    // UI principal cuando hay preguntas
     return Scaffold(
       appBar: AppBar(
         title: Text("Simulación - ${widget.rol}"),
@@ -179,6 +193,7 @@ class _SimulationScreenState extends State<SimulationScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (preguntaActual != null) ...[
+              // Muestra la tarjeta con la pregunta
               Card(
                 elevation: 4,
                 child: Padding(
@@ -194,7 +209,6 @@ class _SimulationScreenState extends State<SimulationScreen> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      //Text("Categoría: ${preguntaActual!.cat}"),
                       Text("Nivel: ${preguntaActual!.lvl}"),
                     ],
                   ),
@@ -206,18 +220,19 @@ class _SimulationScreenState extends State<SimulationScreen> {
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 10),
+              // Lista de opciones de respuesta
               ...opciones.asMap().entries.map((entry) {
                 final index = entry.key;
                 final opcion = entry.value;
                 return Card(
                   margin: const EdgeInsets.only(bottom: 10),
                   color: respuestaMostrada && opcion.correct == true
-                      ? Colors.green[100]
+                      ? Colors.green[100] // Si es la correcta
                       : (opcionSeleccionada == index
-                      ? (respuestaMostrada
-                      ? Colors.red[100]
-                      : Colors.blue[100])
-                      : null),
+                          ? (respuestaMostrada
+                              ? Colors.red[100] // Si seleccionó mal
+                              : Colors.blue[100]) // Aún no muestra resultado
+                          : null),
                   child: ListTile(
                     title: Text(opcion.txt),
                     onTap: () => seleccionarOpcion(index),
@@ -225,6 +240,7 @@ class _SimulationScreenState extends State<SimulationScreen> {
                 );
               }),
               const SizedBox(height: 20),
+              // Botón para verificar respuesta
               if (opcionSeleccionada != null && !respuestaMostrada)
                 Center(
                   child: ElevatedButton(
@@ -232,6 +248,7 @@ class _SimulationScreenState extends State<SimulationScreen> {
                     child: const Text('Verificar respuesta'),
                   ),
                 ),
+              // Botón para continuar a siguiente pregunta
               if (respuestaMostrada)
                 Center(
                   child: ElevatedButton(
