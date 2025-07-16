@@ -19,7 +19,7 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _animation;
 
-  // 👇 Mascota
+  // Mascota
   MascotState _mascotState = MascotState.idle;
   late Timer _mascotTimer;
   final List<MascotState> _animatedStates = [
@@ -41,7 +41,7 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
       curve: Curves.easeOut,
     );
 
-    // ⏱️ Iniciar animaciones automáticas cada 5 segundos
+    // Iniciar animaciones automáticas cada 5 segundos
     _mascotTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (mounted) {
         setState(() {
@@ -59,7 +59,7 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
   @override
   void dispose() {
     _animationController.dispose();
-    _mascotTimer.cancel(); // 👈 Detener temporizador
+    _mascotTimer.cancel(); //  Detener temporizador
     super.dispose();
   }
 
@@ -186,7 +186,7 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
     return Scaffold(
       body: Stack(
         children: [
-          // 🌐 CONTENIDO PRINCIPAL
+          //  CONTENIDO PRINCIPAL
           Column(
             children: [
               Container(
@@ -357,7 +357,7 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
             ],
           ),
 
-          // 🧠 MASCOTA FLOTANTE
+          //  MASCOTA FLOTANTE
           Positioned(
             bottom: 20,
             right: 20,
