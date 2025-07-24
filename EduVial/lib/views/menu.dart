@@ -116,7 +116,7 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => Signalmodule(nivel: nivel.toLowerCase()),
+              builder: (context) => SignalModule(nivel: nivel.toLowerCase()),
             ),
           );
         },
