@@ -1,4 +1,4 @@
-import 'dart:convert';
+import 'dart:convert'; // Para convertir JSON
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -6,7 +6,7 @@ import '../models/pregunta.dart';
 import 'package:eduvial/controllers/global_identifier.dart';
 
 class SignalModule extends StatefulWidget {
-  final String nivel;
+  final String nivel; // Nivel que se pasa desde el menú (ej: 'principiante')
 
   const SignalModule({Key? key, required this.nivel}) : super(key: key);
 
@@ -15,30 +15,32 @@ class SignalModule extends StatefulWidget {
 }
 
 class _SignalModuleState extends State<SignalModule> {
-  List<Pregunta> preguntas = [];
+  List<Pregunta> preguntas = []; // Lista de preguntas cargadas
   bool cargando = true;
   String error = '';
-  Pregunta? preguntaActual;
+  Pregunta? preguntaActual; // Pregunta que se está mostrando actualmente
   List<OpcionRespuesta> opciones = [];
   int? opcionSeleccionada;
-  bool respuestaMostrada = false;
+  bool respuestaMostrada = false; // Si ya se mostró si era correcta
 
-  int indicePregunta = 0;
-  int puntaje = 0;
-  final int maxPreguntas = 10;
+  int indicePregunta = 0; // Índice actual en la lista de preguntas
+  int puntaje = 0;// Cuántas respuestas correctas lleva el usuario
+  final int maxPreguntas = 10; // Máximo de preguntas que se mostrarán
 
   @override
   void initState() {
     super.initState();
-    cargarPreguntas();
+    cargarPreguntas(); // Cargar preguntas al iniciar el módulo
   }
 
+  // Mapea el nivel para que coincida con los datos del servidor
   String getNivelDesdeGlobal() {
     if (global_identifier.counter == 0) return 'Básico';
     if (global_identifier.counter == 1) return 'Avanzado';
     return 'Intermedio';
   }
 
+// Carga las opciones para una pregunta específica
   Future<void> cargarOpciones(int preguntaId) async {
     try {
       final response = await http.get(
@@ -58,6 +60,7 @@ class _SignalModuleState extends State<SignalModule> {
     }
   }
 
+  // Carga las preguntas desde la API
   Future<void> cargarPreguntas() async {
     setState(() {
       cargando = true;
@@ -82,7 +85,7 @@ class _SignalModuleState extends State<SignalModule> {
             .toList();
 
         if (preguntasFiltradas.isNotEmpty) {
-          preguntasFiltradas.shuffle();
+          preguntasFiltradas.shuffle(); // Aleatoriza
           final preguntasLimitadas = preguntasFiltradas.take(maxPreguntas).toList();
 
           setState(() {
@@ -111,6 +114,7 @@ class _SignalModuleState extends State<SignalModule> {
     }
   }
 
+  // Cuando el usuario toca una opción
   void seleccionarOpcion(int index) {
     if (!respuestaMostrada) {
       setState(() {
@@ -119,6 +123,7 @@ class _SignalModuleState extends State<SignalModule> {
     }
   }
 
+  // Verifica si la respuesta era correcta y suma puntaje
   void mostrarRespuesta() {
     if (opcionSeleccionada != null &&
         opcionSeleccionada! >= 0 &&
@@ -133,6 +138,7 @@ class _SignalModuleState extends State<SignalModule> {
     }
   }
 
+  // Muestra la siguiente pregunta o el resumen si se terminó
   void siguientePregunta() {
     if (indicePregunta + 1 >= preguntas.length) {
       mostrarResumenFinal();
@@ -149,6 +155,7 @@ class _SignalModuleState extends State<SignalModule> {
     cargarOpciones(preguntaActual!.id);
   }
 
+  // Muestra una ventana con los resultados finales
   void mostrarResumenFinal() {
     showDialog(
       context: context,
@@ -191,6 +198,7 @@ class _SignalModuleState extends State<SignalModule> {
     );
   }
 
+  // UI principal de la pantalla
   @override
   Widget build(BuildContext context) {
     if (cargando) {
