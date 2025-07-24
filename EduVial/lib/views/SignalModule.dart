@@ -1,376 +1,305 @@
+import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import '../models/pregunta.dart';
+import 'package:eduvial/controllers/global_identifier.dart';
 
-class Signalmodule extends StatefulWidget {
-  final String nivel; // "principiante" o "avanzado"
+class SignalModule extends StatefulWidget {
+  final String nivel;
 
-  const Signalmodule({
-    Key? key,
-    required this.nivel,
-  }) : super(key: key);
+  const SignalModule({Key? key, required this.nivel}) : super(key: key);
 
   @override
-  State<Signalmodule> createState() => _SignalModuleState();
+  State<SignalModule> createState() => _SignalModuleState();
 }
 
-class _SignalModuleState extends State<Signalmodule> {
-  // En el futuro, estas preguntas vendrán de una API
-  // Este es solo un ejemplo de la estructura de datos esperada
-  final List<Map<String, dynamic>> preguntasPrincipiante = [
-    {
-      'imagen': 'assets/images/signalModule/principiante1.jpg',
-      'pregunta': '¿Qué representa la siguiente señal de transito?',
-      'opciones': [
-        'Alto / Stop',
-        'Límite de velocidad',
-        'Curva peligrosa',
-        'Cruce de peatones'
-      ],
-      'respuestaCorrecta': 3,
-      'explicacion': 'Puede haber peatones cruzando.'
-    },
-    {
-      'imagen': 'assets/images/signalModule/principiante2.jpg',
-      'pregunta': '¿Qué representa la siguiente señal de transito?',
-      'opciones': [
-        'Intersección adelante',
-        'Reducción de carriles',
-        'Puente levadizo',
-        'Zona de derrumbes'
-      ],
-      'respuestaCorrecta': 2,
-      'explicacion': 'El puente puede elevarse. Precaución.'
-    },
-    {
-      'imagen': 'assets/images/signalModule/principiante3.jpg',
-      'pregunta': '¿Qué representa la siguiente señal de transito?',
-      'opciones': [
-        'Prohibido el paso',
-        'Prohibido girar a la izquierda',
-        'Prohibido girar a la derecha',
-        'Prohibido peatones'
-      ],
-      'respuestaCorrecta': 2,
-      'explicacion': 'No se permite doblar a la derecha.'
+class _SignalModuleState extends State<SignalModule> {
+  List<Pregunta> preguntas = [];
+  bool cargando = true;
+  String error = '';
+  Pregunta? preguntaActual;
+  List<OpcionRespuesta> opciones = [];
+  int? opcionSeleccionada;
+  bool respuestaMostrada = false;
 
-    },
-  ];
+  int indicePregunta = 0;
+  int puntaje = 0;
+  final int maxPreguntas = 10;
 
-  // En el futuro, estas preguntas vendrán de una API
-  final List<Map<String, dynamic>> preguntasAvanzado = [
-    {
-      'imagen': 'assets/images/signalModule/principiante1.jpg',
-      'pregunta': '¿Qué representa la siguiente señal de transito?',
-      'opciones': [
-        'Alto / Stop',
-        'Límite de velocidad',
-        'Curva peligrosa',
-        'Cruce de peatones'
-      ],
-      'respuestaCorrecta': 3,
-
-    },
-    {
-      'imagen': 'assets/images/signalModule/principiante2.jpg',
-      'pregunta': '¿Qué representa la siguiente señal de transito?',
-      'opciones': [
-        'Intersección adelante',
-        'Reducción de carriles',
-        'Puente levadizo',
-        'Zona de derrumbes'
-      ],
-      'respuestaCorrecta': 2,
-
-    },
-    {
-      'imagen': 'assets/images/signalModule/principiante3.jpg',
-      'pregunta': '¿Qué representa la siguiente señal de transito?',
-      'opciones': [
-        'Prohibido el paso',
-        'Prohibido girar a la izquierda',
-        'Prohibido girar a la derecha',
-        'Prohibido peatones'
-      ],
-      'respuestaCorrecta': 2,
-
-    },
-  ];
-
-  int preguntaActual = 0;
-  int puntuacion = 0;
-  bool respondido = false;
-  int? seleccionUsuario;
-  bool mostrarExplicacion = false;
-
-  // Obtener la lista de preguntas según el nivel
-  List<Map<String, dynamic>> get preguntas {
-    return widget.nivel == 'principiante' ? preguntasPrincipiante : preguntasAvanzado;
+  @override
+  void initState() {
+    super.initState();
+    cargarPreguntas();
   }
 
-  void verificarRespuesta(int opcionSeleccionada) {
-    if (respondido) return; // Evitar múltiples respuestas
+  String getNivelDesdeGlobal() {
+    if (global_identifier.counter == 0) return 'Básico';
+    if (global_identifier.counter == 1) return 'Avanzado';
+    return 'Intermedio';
+  }
 
-    setState(() {
-      respondido = true;
-      seleccionUsuario = opcionSeleccionada;
-      mostrarExplicacion = true;
+  Future<void> cargarOpciones(int preguntaId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('https://dev.eduvial.space/api/quest/$preguntaId/options'),
+      );
 
-      if (opcionSeleccionada == preguntas[preguntaActual]['respuestaCorrecta']) {
-        puntuacion++;
+      if (response.statusCode == 200) {
+        final List<dynamic> datos = json.decode(response.body);
+        setState(() {
+          opciones = datos.map((json) => OpcionRespuesta.fromJson(json)).toList();
+          opcionSeleccionada = null;
+          respuestaMostrada = false;
+        });
       }
-    });
-  }
-
-  void siguientePregunta() {
-    if (preguntaActual < preguntas.length - 1) {
-      setState(() {
-        preguntaActual++;
-        respondido = false;
-        seleccionUsuario = null;
-        mostrarExplicacion = false;
-      });
-    } else {
-      // Mostrar resultados finales cuando se completan todas las preguntas
-      mostrarResultados();
+    } catch (e) {
+      print('Error al cargar opciones: $e');
     }
   }
 
-  void mostrarResultados() {
+  Future<void> cargarPreguntas() async {
+    setState(() {
+      cargando = true;
+      error = '';
+    });
+
+    try {
+      final response = await http.get(
+        Uri.parse('https://dev.eduvial.space/api/quest'),
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final List datos = json.decode(response.body);
+        final todasLasPreguntas = datos
+            .where((json) => json != null)
+            .map((json) => Pregunta.fromJson(json))
+            .toList();
+
+        final nivelUsuario = getNivelDesdeGlobal();
+        final preguntasFiltradas = todasLasPreguntas
+            .where((p) => p.lvl == nivelUsuario)
+            .toList();
+
+        if (preguntasFiltradas.isNotEmpty) {
+          preguntasFiltradas.shuffle();
+          final preguntasLimitadas = preguntasFiltradas.take(maxPreguntas).toList();
+
+          setState(() {
+            preguntas = preguntasLimitadas;
+            preguntaActual = preguntas.first;
+            cargando = false;
+            indicePregunta = 0;
+            puntaje = 0;
+          });
+
+          await cargarOpciones(preguntaActual!.id);
+        } else {
+          setState(() {
+            error = 'No hay señales para el nivel ${nivelUsuario}';
+            cargando = false;
+          });
+        }
+      } else {
+        throw Exception('Error al cargar preguntas');
+      }
+    } catch (e) {
+      setState(() {
+        error = 'Error: ${e.toString()}';
+        cargando = false;
+      });
+    }
+  }
+
+  void seleccionarOpcion(int index) {
+    if (!respuestaMostrada) {
+      setState(() {
+        opcionSeleccionada = index;
+      });
+    }
+  }
+
+  void mostrarRespuesta() {
+    if (opcionSeleccionada != null &&
+        opcionSeleccionada! >= 0 &&
+        opcionSeleccionada! < opciones.length) {
+      setState(() {
+        respuestaMostrada = true;
+
+        if (opciones[opcionSeleccionada!].correct ?? false) {
+          puntaje++;
+        }
+      });
+    }
+  }
+
+  void siguientePregunta() {
+    if (indicePregunta + 1 >= preguntas.length) {
+      mostrarResumenFinal();
+      return;
+    }
+
+    setState(() {
+      indicePregunta++;
+      preguntaActual = preguntas[indicePregunta];
+      respuestaMostrada = false;
+      opcionSeleccionada = null;
+    });
+
+    cargarOpciones(preguntaActual!.id);
+  }
+
+  void mostrarResumenFinal() {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Cuestionario Completado'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Has completado señales de nivel ${widget.nivel}'),
-              const SizedBox(height: 16),
-              Text(
-                'Tu puntuación: $puntuacion de ${preguntas.length}',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: puntuacion > (preguntas.length / 2) ? Colors.green : Colors.red,
-                ),
+      builder: (_) => AlertDialog(
+        title: const Text('Módulo completado'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Respondiste $puntaje de ${preguntas.length} correctamente.'),
+            const SizedBox(height: 12),
+            Text(
+              puntaje >= (preguntas.length / 2)
+                  ? 'Buen trabajo'
+                  : 'Puedes mejorar',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: puntaje >= (preguntas.length / 2) ? Colors.green : Colors.red,
               ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(); // Cerrar el diálogo
-                Navigator.of(context).pop(); // Volver a la pantalla anterior
-              },
-              child: const Text('Volver al menú'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop(); // Cerrar el diálogo
-                // Reiniciar la simulación
-                setState(() {
-                  preguntaActual = 0;
-                  puntuacion = 0;
-                  respondido = false;
-                  seleccionUsuario = null;
-                  mostrarExplicacion = false;
-                });
-              },
-              child: const Text('Intentar de nuevo'),
             ),
           ],
-        );
-      },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              cargarPreguntas();
+            },
+            child: const Text('Reintentar'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).pop();
+            },
+            child: const Text('Volver al menú'),
+          ),
+        ],
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final preguntaActualData = preguntas[preguntaActual];
+    if (cargando) {
+      return Scaffold(
+        appBar: AppBar(title: const Text("Módulo de Señales")),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (error.isNotEmpty) {
+      return Scaffold(
+        appBar: AppBar(title: const Text("Módulo de Señales")),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(error),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: cargarPreguntas,
+                child: const Text('Reintentar'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Señales ${widget.nivel.toUpperCase()}'),
-        backgroundColor: Colors.blue,
-        elevation: 4,
-      ),
-      body: Column(
-        children: [
-          // Indicador de progreso
-          LinearProgressIndicator(
-            value: (preguntaActual + 1) / preguntas.length,
-            backgroundColor: Colors.grey[300],
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+        title: const Text("Módulo de Señales"),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: siguientePregunta,
+            tooltip: 'Siguiente señal',
           ),
-
-          // Contenedor principal con scroll
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Contador de preguntas
-                  Text(
-                    'Pregunta ${preguntaActual + 1} de ${preguntas.length}',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.grey[700],
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Imagen de la situación
-                  Container(
-                    height: 200,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.asset(
-                        preguntaActualData['imagen'],
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Pregunta
-                  Text(
-                    preguntaActualData['pregunta'],
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Opciones de respuesta
-                  ...List.generate(
-                    preguntaActualData['opciones'].length,
-                        (index) {
-                      final bool esCorrecta = index == preguntaActualData['respuestaCorrecta'];
-                      final bool seleccionada = seleccionUsuario == index;
-
-                      // Determinar el color del botón según el estado
-                      Color? buttonColor;
-                      if (respondido) {
-                        if (esCorrecta) {
-                          buttonColor = Colors.green[100];
-                        } else if (seleccionada) {
-                          buttonColor = Colors.red[100];
-                        }
-                      }
-
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8.0),
-                        child: ElevatedButton(
-                          onPressed: respondido ? null : () => verificarRespuesta(index),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: buttonColor,
-                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                            alignment: Alignment.centerLeft,
-                          ),
-                          child: Row(
-                            children: [
-                              // Indicador de opción (A, B, C, D)
-                              Container(
-                                width: 30,
-                                height: 30,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: Colors.blue[800],
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    String.fromCharCode('A'.codeUnitAt(0) + index),
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              // Texto de la opción
-                              Expanded(
-                                child: Text(
-                                  preguntaActualData['opciones'][index],
-                                  style: const TextStyle(fontSize: 16),
-                                ),
-                              ),
-
-                              // Icono de correcto/incorrecto si ya respondió
-                              if (respondido)
-                                Icon(
-                                  esCorrecta ? Icons.check_circle : (seleccionada ? Icons.cancel : null),
-                                  color: esCorrecta ? Colors.green : (seleccionada ? Colors.red : null),
-                                ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-
-                  // Explicación de la respuesta correcta
-                  if (mostrarExplicacion) ...[
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.blue[50],
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.blue),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Explicación:',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            preguntaActualData['explicacion'],
-                            style: const TextStyle(fontSize: 15),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-
-          // Botón para continuar
-          if (respondido)
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: ElevatedButton(
-                onPressed: siguientePregunta,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  minimumSize: const Size(double.infinity, 50),
-                ),
-                child: Text(
-                  preguntaActual < preguntas.length - 1 ? 'Siguiente Pregunta' : 'Ver Resultados',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
         ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (preguntaActual != null) ...[
+              Card(
+                elevation: 4,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        preguntaActual!.txt,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text("Nivel: ${preguntaActual!.lvl}"),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                "Opciones:",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 10),
+              ...opciones.asMap().entries.map((entry) {
+                final index = entry.key;
+                final opcion = entry.value;
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  color: respuestaMostrada && opcion.correct == true
+                      ? Colors.green[100]
+                      : (opcionSeleccionada == index
+                      ? (respuestaMostrada ? Colors.red[100] : Colors.blue[100])
+                      : null),
+                  child: ListTile(
+                    title: Text(opcion.txt),
+                    onTap: () => seleccionarOpcion(index),
+                  ),
+                );
+              }),
+              const SizedBox(height: 20),
+              if (opcionSeleccionada != null && !respuestaMostrada)
+                Center(
+                  child: ElevatedButton(
+                    onPressed: mostrarRespuesta,
+                    child: const Text('Verificar respuesta'),
+                  ),
+                ),
+              if (respuestaMostrada)
+                Center(
+                  child: ElevatedButton(
+                    onPressed: siguientePregunta,
+                    child: Text(
+                      indicePregunta + 1 >= preguntas.length
+                          ? 'Ver resultados'
+                          : 'Siguiente Señal',
+                    ),
+                  ),
+                ),
+            ],
+          ],
+        ),
       ),
     );
   }
