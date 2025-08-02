@@ -41,10 +41,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         SnackBar(content: Text("Registro exitoso")),
       );
 
-      Navigator.pop(
-        context,
-        MaterialPageRoute(builder: (context) => LoginScreen()),
-      );
+      Navigator.pop(context);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Error: ${result['error']}")),
