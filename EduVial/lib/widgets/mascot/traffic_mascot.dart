@@ -9,12 +9,12 @@ class TrafficMascot extends StatefulWidget {
   final bool autoAnimate;
 
   const TrafficMascot({
-    Key? key,
+    super.key,
     this.state = MascotState.idle,
     this.size = 200,
     this.onTap,
     this.autoAnimate = true,
-  }) : super(key: key);
+  });
 
   @override
   _TrafficMascotState createState() => _TrafficMascotState();
@@ -179,7 +179,7 @@ class _TrafficMascotState extends State<TrafficMascot>
             ),
             child: Transform.rotate(
               angle: _rotationAnimation.value,
-              child: Container(
+              child: SizedBox(
                 width: widget.size,
                 height: widget.size,
                 child: CustomPaint(
@@ -530,6 +530,8 @@ class MascotPainter extends CustomPainter {
 
 // Ejemplo de uso
 class MascotDemo extends StatefulWidget {
+  const MascotDemo({super.key});
+
   @override
   _MascotDemoState createState() => _MascotDemoState();
 }

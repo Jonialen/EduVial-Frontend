@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'views//login.dart';
-import 'package:eduvial/views/menu.dart';
 
 //Preview
 void main() {

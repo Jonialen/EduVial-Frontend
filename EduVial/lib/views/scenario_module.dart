@@ -1,45 +1,46 @@
-import 'dart:convert'; // Para convertir JSON
-import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import '../models/pregunta.dart';
-import 'package:eduvial/controllers/global_identifier.dart';
+// Importación de librerías necesarias
+import 'dart:convert'; // Para decodificar respuestas JSON
+import 'dart:math'; // Para generar números aleatorios
+import 'package:flutter/material.dart'; // Para UI en Flutter
+import 'package:http/http.dart' as http; // Para hacer peticiones HTTP
+import '../models/pregunta.dart'; // Modelo de datos de las preguntas
+import 'package:eduvial/controllers/global_identifier.dart'; // Variable global para identificar nivel
 
-class SignalModule extends StatefulWidget {
-  final String nivel; // Nivel que se pasa desde el menú (ej: 'principiante')
+// Widget principal de tipo Stateful para mostrar simulaciones según el rol
+class ScenarioModule extends StatefulWidget {
+  final String rol; // El rol define el nivel de dificultad
 
-  const SignalModule({super.key, required this.nivel});
+  const ScenarioModule({super.key, required this.rol});
 
   @override
-  State<SignalModule> createState() => _SignalModuleState();
+  _ScenarioModuleState createState() => _ScenarioModuleState();
 }
 
-class _SignalModuleState extends State<SignalModule> {
-  List<Pregunta> preguntas = []; // Lista de preguntas cargadas
-  bool cargando = true;
-  String error = '';
-  Pregunta? preguntaActual; // Pregunta que se está mostrando actualmente
-  List<OpcionRespuesta> opciones = [];
-  int? opcionSeleccionada;
-  bool respuestaMostrada = false; // Si ya se mostró si era correcta
+// Estado del widget ScenarioModule
+class _ScenarioModuleState extends State<ScenarioModule> {
+  List<Pregunta> preguntas = []; // Lista de todas las preguntas filtradas
+  bool cargando = true; // Estado de carga de los datos
+  String error = ''; // Mensaje de error si ocurre
+  Pregunta? preguntaActual; // Pregunta actualmente mostrada
+  List<OpcionRespuesta> opciones = []; // Opciones para la pregunta actual
+  int? opcionSeleccionada; // Índice de opción que el usuario seleccionó
+  bool respuestaMostrada = false; // Si ya se mostró la respuesta correcta
 
-  int indicePregunta = 0; // Índice actual en la lista de preguntas
-  int puntaje = 0;// Cuántas respuestas correctas lleva el usuario
-  final int maxPreguntas = 10; // Máximo de preguntas que se mostrarán
-
+  // Se ejecuta al iniciar el widget
   @override
   void initState() {
     super.initState();
-    cargarPreguntas(); // Cargar preguntas al iniciar el módulo
+    cargarPreguntas(); // Carga las preguntas al iniciar
   }
 
-  // Mapea el nivel para que coincida con los datos del servidor
-  String getNivelDesdeGlobal() {
-    if (global_identifier.counter == 0) return 'Básico';
-    if (global_identifier.counter == 1) return 'Avanzado';
+  // Método que obtiene el nivel según la variable global
+  String getNivelDesdeRol(String rol) {
+    if (global_identifier.counter==0) return 'Básico';
+    if (global_identifier.counter==1) return 'Avanzado';
     return 'Intermedio';
   }
 
-// Carga las opciones para una pregunta específica
+  // Método que obtiene las opciones para una pregunta dada
   Future<void> cargarOpciones(int preguntaId) async {
     try {
       final response = await http.get(
@@ -59,7 +60,7 @@ class _SignalModuleState extends State<SignalModule> {
     }
   }
 
-  // Carga las preguntas desde la API
+  // Método que carga todas las preguntas y filtra por nivel
   Future<void> cargarPreguntas() async {
     setState(() {
       cargando = true;
@@ -69,7 +70,7 @@ class _SignalModuleState extends State<SignalModule> {
     try {
       final response = await http.get(
         Uri.parse('https://dev.eduvial.space/api/quest'),
-      ).timeout(const Duration(seconds: 15));
+      ).timeout(const Duration(seconds: 15)); // Límite de espera
 
       if (response.statusCode == 200) {
         final List datos = json.decode(response.body);
@@ -78,27 +79,25 @@ class _SignalModuleState extends State<SignalModule> {
             .map((json) => Pregunta.fromJson(json))
             .toList();
 
-        final nivelUsuario = getNivelDesdeGlobal();
+        final nivelUsuario = getNivelDesdeRol(widget.rol);
         final preguntasFiltradas = todasLasPreguntas
-            .where((p) => p.lvl == nivelUsuario)
+            .where((p) => p.lvl == nivelUsuario )
             .toList();
 
         if (preguntasFiltradas.isNotEmpty) {
-          preguntasFiltradas.shuffle(); // Aleatoriza
-          final preguntasLimitadas = preguntasFiltradas.take(maxPreguntas).toList();
+          final random = Random();
+          final pregunta = preguntasFiltradas[random.nextInt(preguntasFiltradas.length)];
 
           setState(() {
-            preguntas = preguntasLimitadas;
-            preguntaActual = preguntas.first;
+            preguntas = preguntasFiltradas;
+            preguntaActual = pregunta;
             cargando = false;
-            indicePregunta = 0;
-            puntaje = 0;
           });
 
-          await cargarOpciones(preguntaActual!.id);
+          await cargarOpciones(pregunta.id);
         } else {
           setState(() {
-            error = 'No hay señales para el nivel $nivelUsuario';
+            error = 'No hay preguntas para tu nivel (${widget.rol})';
             cargando = false;
           });
         }
@@ -113,7 +112,7 @@ class _SignalModuleState extends State<SignalModule> {
     }
   }
 
-  // Cuando el usuario toca una opción
+  // Método para seleccionar una opción
   void seleccionarOpcion(int index) {
     if (!respuestaMostrada) {
       setState(() {
@@ -122,94 +121,44 @@ class _SignalModuleState extends State<SignalModule> {
     }
   }
 
-  // Verifica si la respuesta era correcta y suma puntaje
+  // Método para mostrar si la respuesta fue correcta
   void mostrarRespuesta() {
-    if (opcionSeleccionada != null &&
-        opcionSeleccionada! >= 0 &&
-        opcionSeleccionada! < opciones.length) {
-      setState(() {
-        respuestaMostrada = true;
-
-        if (opciones[opcionSeleccionada!].correct ?? false) {
-          puntaje++;
-        }
-      });
-    }
+    setState(() {
+      respuestaMostrada = true;
+    });
   }
 
-  // Muestra la siguiente pregunta o el resumen si se terminó
+  // Muestra una nueva pregunta aleatoria
   void siguientePregunta() {
-    if (indicePregunta + 1 >= preguntas.length) {
-      mostrarResumenFinal();
-      return;
-    }
+    if (preguntas.isEmpty) return;
+
+    final random = Random();
+    final pregunta = preguntas[random.nextInt(preguntas.length)];
 
     setState(() {
-      indicePregunta++;
-      preguntaActual = preguntas[indicePregunta];
+      preguntaActual = pregunta;
       respuestaMostrada = false;
       opcionSeleccionada = null;
     });
 
-    cargarOpciones(preguntaActual!.id);
+    cargarOpciones(pregunta.id);
   }
 
-  // Muestra una ventana con los resultados finales
-  void mostrarResumenFinal() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        title: const Text('Módulo completado'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Respondiste $puntaje de ${preguntas.length} correctamente.'),
-            const SizedBox(height: 12),
-            Text(
-              puntaje >= (preguntas.length / 2)
-                  ? 'Buen trabajo'
-                  : 'Puedes mejorar',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: puntaje >= (preguntas.length / 2) ? Colors.green : Colors.red,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              cargarPreguntas();
-            },
-            child: const Text('Reintentar'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).pop();
-            },
-            child: const Text('Volver al menú'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // UI principal de la pantalla
+  // Interfaz de usuario
   @override
   Widget build(BuildContext context) {
+    // Si se está cargando, mostrar indicador de carga
     if (cargando) {
       return Scaffold(
-        appBar: AppBar(title: const Text("Módulo de Señales")),
+        appBar: AppBar(title: Text("Escenarios - ${widget.rol}")),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
+    // Si hubo un error al cargar
     if (error.isNotEmpty) {
       return Scaffold(
-        appBar: AppBar(title: const Text("Módulo de Señales")),
+        appBar: AppBar(title: Text("Escenarios - ${widget.rol}")),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -226,14 +175,15 @@ class _SignalModuleState extends State<SignalModule> {
       );
     }
 
+    // UI principal cuando hay preguntas
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Módulo de Señales"),
+        title: Text("Simulación - ${widget.rol}"),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: siguientePregunta,
-            tooltip: 'Siguiente señal',
+            tooltip: 'Siguiente pregunta',
           ),
         ],
       ),
@@ -243,6 +193,7 @@ class _SignalModuleState extends State<SignalModule> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (preguntaActual != null) ...[
+              // Muestra la tarjeta con la pregunta
               Card(
                 elevation: 4,
                 child: Padding(
@@ -259,6 +210,8 @@ class _SignalModuleState extends State<SignalModule> {
                       ),
                       const SizedBox(height: 16),
                       Text("Nivel: ${preguntaActual!.lvl}"),
+                      //Text("Categoría: ${preguntaActual!.cat}")
+
                     ],
                   ),
                 ),
@@ -269,15 +222,18 @@ class _SignalModuleState extends State<SignalModule> {
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 10),
+              // Lista de opciones de respuesta
               ...opciones.asMap().entries.map((entry) {
                 final index = entry.key;
                 final opcion = entry.value;
                 return Card(
                   margin: const EdgeInsets.only(bottom: 10),
                   color: respuestaMostrada && opcion.correct == true
-                      ? Colors.green[100]
+                      ? Colors.green[100] // Si es la correcta
                       : (opcionSeleccionada == index
-                      ? (respuestaMostrada ? Colors.red[100] : Colors.blue[100])
+                      ? (respuestaMostrada
+                      ? Colors.red[100] // Si seleccionó mal
+                      : Colors.blue[100]) // Aún no muestra resultado
                       : null),
                   child: ListTile(
                     title: Text(opcion.txt),
@@ -286,6 +242,7 @@ class _SignalModuleState extends State<SignalModule> {
                 );
               }),
               const SizedBox(height: 20),
+              // Botón para verificar respuesta
               if (opcionSeleccionada != null && !respuestaMostrada)
                 Center(
                   child: ElevatedButton(
@@ -293,15 +250,12 @@ class _SignalModuleState extends State<SignalModule> {
                     child: const Text('Verificar respuesta'),
                   ),
                 ),
+              // Botón para continuar a siguiente pregunta
               if (respuestaMostrada)
                 Center(
                   child: ElevatedButton(
                     onPressed: siguientePregunta,
-                    child: Text(
-                      indicePregunta + 1 >= preguntas.length
-                          ? 'Ver resultados'
-                          : 'Siguiente Señal',
-                    ),
+                    child: const Text('Siguiente Pregunta'),
                   ),
                 ),
             ],

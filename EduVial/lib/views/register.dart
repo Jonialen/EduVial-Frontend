@@ -1,5 +1,4 @@
 import 'package:eduvial/controllers/auth_controller.dart';
-import 'package:eduvial/views/login.dart';
 import 'package:flutter/material.dart';
 import 'package:eduvial/models/user.dart';
 

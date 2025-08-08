@@ -1,10 +1,42 @@
 import 'package:flutter/material.dart';
+import 'package:eduvial/models/user.dart'; // <-- User, currentUser, loadUserLocal
 
-class ProfileScreen extends StatelessWidget {
-  const ProfileScreen({Key? key}) : super(key: key);
+class ProfileScreen extends StatefulWidget {
+  const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  bool cargando = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _initUser();
+  }
+
+  Future<void> _initUser() async {
+    if (currentUser == null) {
+      await loadUserLocal(); // levanta de SharedPreferences si no está en memoria
+    }
+    if (mounted) setState(() => cargando = false);
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (cargando) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    //final nombre = currentUser?.name ?? '—';
+    final correo = currentUser?.email ?? '—';
+    // Si quieres mostrar el rol:
+    // final rol = currentUser?.role ?? '—';
+
     return Scaffold(
       body: SingleChildScrollView(
         child: Column(
@@ -51,7 +83,7 @@ class ProfileScreen extends StatelessWidget {
               child: Column(
                 children: [
                   // Icono grande en la parte superior
-                  CircleAvatar(
+                  const CircleAvatar(
                     radius: 60,
                     backgroundColor: Colors.white,
                     child: Icon(
@@ -63,7 +95,7 @@ class ProfileScreen extends StatelessWidget {
                   const SizedBox(height: 20),
 
                   // Nombre de usuario
-                  ListTile(
+                 /* ListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text(
                       'Nombre:',
@@ -73,30 +105,12 @@ class ProfileScreen extends StatelessWidget {
                         fontSize: 18,
                       ),
                     ),
-                    subtitle: const Text(
-                      'Juan Pérez',
-                      style: TextStyle(fontSize: 16),
+                    subtitle: Text(
+                      nombre,
+                      style: const TextStyle(fontSize: 16),
                     ),
                   ),
-                  const Divider(),
-
-                  // Username
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text(
-                      'Username:',
-                      style: TextStyle(
-                        color: Color(0xFF1976D2),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                      ),
-                    ),
-                    subtitle: const Text(
-                      'juan_perez123',
-                      style: TextStyle(fontSize: 16),
-                    ),
-                  ),
-                  const Divider(),
+                  const Divider(),*/
 
                   // Correo electrónico
                   ListTile(
@@ -109,14 +123,30 @@ class ProfileScreen extends StatelessWidget {
                         fontSize: 18,
                       ),
                     ),
-                    subtitle: const Text(
-                      'juan.perez@example.com',
-                      style: TextStyle(fontSize: 16),
+                    subtitle: Text(
+                      correo,
+                      style: const TextStyle(fontSize: 16),
                     ),
                   ),
                   const Divider(),
 
-                  // Agregar más campos si es necesario
+                  // (Opcional) Rol
+                  // ListTile(
+                  //   contentPadding: EdgeInsets.zero,
+                  //   title: const Text(
+                  //     'Rol:',
+                  //     style: TextStyle(
+                  //       color: Color(0xFF1976D2),
+                  //       fontWeight: FontWeight.bold,
+                  //       fontSize: 18,
+                  //     ),
+                  //   ),
+                  //   subtitle: Text(
+                  //     rol,
+                  //     style: const TextStyle(fontSize: 16),
+                  //   ),
+                  // ),
+                  // const Divider(),
                 ],
               ),
             ),
@@ -126,4 +156,3 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 }
-

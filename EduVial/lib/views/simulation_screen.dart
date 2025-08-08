@@ -10,7 +10,7 @@ import 'package:eduvial/controllers/global_identifier.dart'; // Variable global 
 class SimulationScreen extends StatefulWidget {
   final String rol; // El rol define el nivel de dificultad
 
-  const SimulationScreen({Key? key, required this.rol}) : super(key: key);
+  const SimulationScreen({super.key, required this.rol});
 
   @override
   _SimulationScreenState createState() => _SimulationScreenState();

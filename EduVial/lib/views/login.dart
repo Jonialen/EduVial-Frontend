@@ -1,8 +1,8 @@
-import 'package:eduvial/views/register.dart';
 import 'package:flutter/material.dart';
+import 'package:eduvial/views/register.dart';
 import 'package:eduvial/controllers/auth_controller.dart';
 import 'package:eduvial/views/menu.dart';
-
+import 'package:eduvial/models/user.dart'; // User + helpers locales
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -15,65 +15,95 @@ class _LoginScreenState extends State<LoginScreen> {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
 
-  void _onLoginPressed() async {
+  @override
+  void dispose() {
+    emailController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _onLoginPressed() async {
     final email = emailController.text.trim();
     final password = passwordController.text.trim();
 
     if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Por favor completa todos los campos')),
+        const SnackBar(content: Text('Por favor completa todos los campos')),
       );
       return;
     }
 
     final result = await auth_controller.login(email, password);
 
-    if (result['success']) {
-      // Login exitoso
+    if (result['success'] == true) {
+      // Si tu controlador devuelve datos del usuario, úsalos:
+      final name = (result['user']?['name'] as String?) ?? 'Usuario';
+      final role = (result['user']?['role'] as String?) ?? 'principiante';
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('¡Inicio de sesión exitoso!')),
-
+      // Guardar usuario local (⚠️ con password, solo dev)
+      final user = User(
+        name: name,
+        email: email,
+        password: password,
+        role: role,
       );
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => Menu()));
+      await saveUserLocal(user);
 
-
-    } else {
-      // Mostrar el error
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result['error'])),
+        const SnackBar(content: Text('¡Inicio de sesión exitoso!')),
+      );
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => Menu()),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result['error'] ?? 'Error de login')),
       );
     }
   }
 
+  Future<void> _onGuestPressed() async {
+    final user = User(
+      name: 'Invitado',
+      email: 'invitado@eduvial.app',
+      password: '',
+      role: 'invitado',
+    );
+    await saveUserLocal(user);
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Entraste como invitado')),
+    );
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => Menu()),
+    );
+  }
 
   void _onRegisterPressed() {
     Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => RegisterScreen()));
+      context,
+      MaterialPageRoute(builder: (_) => const RegisterScreen()),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.blue, // 🎨
-        elevation: 4, // Sombra debajo
-      ),
+      appBar: AppBar(backgroundColor: Colors.blue, elevation: 4),
       body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(16),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center, // Centra el contenido verticalmente
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Imagen centrada
-              Image.asset(
-                'assets/images/Logo-refac.png',
-                height: 350, // Ajusta el tamaño de la imagen
-                width: 350,
-              ),
-              const SizedBox(height: 32), // Espacio entre la imagen y los campos de texto
-              // Campos de texto para el correo y la contraseña
+              Image.asset('assets/images/Logo-refac.png', height: 350, width: 350),
+              const SizedBox(height: 32),
               TextField(
                 controller: emailController,
                 decoration: const InputDecoration(
@@ -91,13 +121,12 @@ class _LoginScreenState extends State<LoginScreen> {
                 obscureText: true,
               ),
               const SizedBox(height: 24),
-              // Botones debajo de los campos de texto
               ElevatedButton(
                 onPressed: _onLoginPressed,
                 child: const Text('Iniciar sesión'),
               ),
               ElevatedButton(
-                onPressed: _onLoginPressed,
+                onPressed: _onGuestPressed,
                 child: const Text('Ingresar como invitado'),
               ),
               TextButton(

@@ -5,9 +5,10 @@ import 'package:eduvial/views/simulation_screen.dart';
 import 'package:eduvial/views/UserProfile.dart';
 import 'package:eduvial/controllers/global_identifier.dart';
 import '../widgets/mascot/traffic_mascot.dart';
+import 'package:eduvial/views/scenario_module.dart';
 
 class Menu extends StatefulWidget {
-  const Menu({Key? key}) : super(key: key);
+  const Menu({super.key});
 
   @override
   State<Menu> createState() => _MenuState();
@@ -126,7 +127,10 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
         'icono': Icons.landscape,
         'color': Colors.greenAccent,
         'onTap': () {
-          debugPrint('Navegando a escenarios de $nivel');
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) =>ScenarioModule(rol: nivel.toLowerCase()))
+          );
         },
       },
     ];
