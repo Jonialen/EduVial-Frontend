@@ -80,7 +80,7 @@ class _SignalModuleState extends State<SignalModule> {
 
         final nivelUsuario = getNivelDesdeGlobal();
         final preguntasFiltradas = todasLasPreguntas
-            .where((p) => p.lvl == nivelUsuario)
+            .where((p) => p.lvl == nivelUsuario &&  (p.cat).toLowerCase() == 'peatones' )
             .toList();
 
         if (preguntasFiltradas.isNotEmpty) {
