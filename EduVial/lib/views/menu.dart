@@ -4,8 +4,9 @@ import 'package:eduvial/views/SignalModule.dart';
 import 'package:eduvial/views/simulation_screen.dart';
 import 'package:eduvial/views/UserProfile.dart';
 import 'package:eduvial/controllers/global_identifier.dart';
-import '../widgets/mascot/traffic_mascot.dart';
 import 'package:eduvial/views/scenario_module.dart';
+import '../widgets/mascot/traffic_mascot.dart';
+import '../widgets/coin_button.dart'; //  CoinButton
 
 class Menu extends StatefulWidget {
   const Menu({super.key});
@@ -60,7 +61,7 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
   @override
   void dispose() {
     _animationController.dispose();
-    _mascotTimer.cancel(); // 👈 Detener temporizador
+    _mascotTimer.cancel();
     super.dispose();
   }
 
@@ -99,7 +100,11 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
       {
         'nombre': 'Simulaciones',
         'icono': Icons.videogame_asset,
-        'color': Colors.redAccent,
+        // paleta “moneda” roja
+        'rimDark': const Color(0xFFB23A2E),
+        'rimLight': const Color(0xFFFF9E80),
+        'faceDark': const Color(0xFFE53935),
+        'faceLight': const Color(0xFFFF8A80),
         'onTap': () {
           Navigator.push(
             context,
@@ -112,7 +117,11 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
       {
         'nombre': 'Señales',
         'icono': Icons.traffic,
-        'color': Colors.orangeAccent,
+        // paleta “moneda” naranja
+        'rimDark': const Color(0xFFCC7A00),
+        'rimLight': const Color(0xFFFFD180),
+        'faceDark': const Color(0xFFFF9800),
+        'faceLight': const Color(0xFFFFE0B2),
         'onTap': () {
           Navigator.push(
             context,
@@ -125,11 +134,17 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
       {
         'nombre': 'Escenarios',
         'icono': Icons.landscape,
-        'color': Colors.greenAccent,
+        // paleta “moneda” verde
+        'rimDark': const Color(0xFF2E7D32),
+        'rimLight': const Color(0xFFA5D6A7),
+        'faceDark': const Color(0xFF2DBD3A),
+        'faceLight': const Color(0xFF6CD93B),
         'onTap': () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) =>ScenarioModule(rol: nivel.toLowerCase()))
+            MaterialPageRoute(
+              builder: (context) => ScenarioModule(rol: nivel.toLowerCase()),
+            ),
           );
         },
       },
@@ -141,37 +156,21 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
         margin: const EdgeInsets.only(top: 20),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: submodulos.map((submodulo) {
+          children: submodulos.map((m) {
             return Column(
               children: [
-                InkWell(
-                  onTap: submodulo['onTap'],
-                  child: Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: submodulo['color'],
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
-                          blurRadius: 5,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: Center(
-                      child: Icon(
-                        submodulo['icono'],
-                        color: Colors.white,
-                        size: 30,
-                      ),
-                    ),
-                  ),
+                CoinButton(
+                  icon: m['icono'],
+                  size: 78,
+                  rimDark: m['rimDark'],
+                  rimLight: m['rimLight'],
+                  faceDark: m['faceDark'],
+                  faceLight: m['faceLight'],
+                  onTap: m['onTap'],
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  submodulo['nombre'],
+                  m['nombre'],
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -253,6 +252,7 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         const SizedBox(height: 40),
+
                         // PRINCIPIANTES
                         Column(
                           children: [
@@ -265,52 +265,26 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
                               ),
                             ),
                             const SizedBox(height: 10),
-                            InkWell(
+                            CoinButton(
+                              icon: Icons.star,
+                              size: 86,
+                              // paleta “moneda” azul (como tu header)
+                              rimDark: const Color(0xFF0D47A1),
+                              rimLight: const Color(0xFF90CAF9),
+                              faceDark: const Color(0xFF1976D2),
+                              faceLight: const Color(0xFF64B5F6),
                               onTap: () {
                                 global_identifier.counter = 0;
                                 _togglePrincipianteSubmodulos();
                               },
-                              child: Container(
-                                width: 70,
-                                height: 70,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: const Color(0xFF1976D2),
-                                  border: Border.all(
-                                    color: Colors.grey.shade300,
-                                    width: 5,
-                                  ),
-                                ),
-                                child: Stack(
-                                  children: [
-                                    const Center(
-                                      child: Icon(
-                                        Icons.star,
-                                        color: Colors.white,
-                                        size: 40,
-                                      ),
-                                    ),
-                                    Positioned(
-                                      top: 0,
-                                      right: 0,
-                                      child: Container(
-                                        width: 15,
-                                        height: 15,
-                                        decoration: const BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          color: Colors.amber,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
                             ),
                             if (_showPrincipianteSubmodulos)
                               _buildSubmodulos('Principiante'),
                           ],
                         ),
+
                         const SizedBox(height: 50),
+
                         // AVANZADOS
                         Column(
                           children: [
@@ -323,35 +297,24 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
                               ),
                             ),
                             const SizedBox(height: 10),
-                            InkWell(
+                            CoinButton(
+                              icon: Icons.menu_book, // libro como tu ejemplo
+                              size: 86,
+                              // paleta “moneda” dorada
+                              rimDark: const Color(0xFFB57A00),
+                              rimLight: const Color(0xFFFFE082),
+                              faceDark: const Color(0xFFF4C23A),
+                              faceLight: const Color(0xFFFFF3A0),
                               onTap: () {
                                 global_identifier.counter = 1;
                                 _toggleAvanzadoSubmodulos();
                               },
-                              child: Container(
-                                width: 70,
-                                height: 70,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: Colors.grey.shade300,
-                                  border: Border.all(
-                                    color: Colors.grey.shade400,
-                                    width: 5,
-                                  ),
-                                ),
-                                child: const Center(
-                                  child: Icon(
-                                    Icons.book,
-                                    color: Colors.grey,
-                                    size: 35,
-                                  ),
-                                ),
-                              ),
                             ),
                             if (_showAvanzadoSubmodulos)
                               _buildSubmodulos('Avanzado'),
                           ],
                         ),
+
                         const SizedBox(height: 40),
                       ],
                     ),
@@ -372,7 +335,7 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
                 setState(() {
                   _mascotState = MascotState.celebrating;
                 });
-                Future.delayed(Duration(seconds: 2), () {
+                Future.delayed(const Duration(seconds: 2), () {
                   if (mounted) {
                     setState(() {
                       _mascotState = MascotState.idle;

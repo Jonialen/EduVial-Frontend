@@ -1,8 +1,8 @@
 class Pregunta {
   final int id;
   final String txt;
-  final String cat;
-  final String lvl;
+  final String cat;   // <- viene como "category" del API
+  final String lvl;   // <- local, lo respetamos
   final int lawid;
 
   Pregunta({
@@ -15,11 +15,11 @@ class Pregunta {
 
   factory Pregunta.fromJson(Map<String, dynamic> json) {
     return Pregunta(
-      id: json['id'],
-      txt: json['txt'],
-      cat: json['cat'],
-      lvl: json['lvl'],
-      lawid: json['lawid'],
+      id: json['id'] ?? json['question_id'],
+      txt: json['txt'] ?? json['question_text'],
+      cat: json['cat'] ?? json['category'] ?? '',
+      lvl: json['lvl'] ?? '',          // 👈 no lo calculamos aquí, lo dejas como usas hoy
+      lawid: json['lawid'] ?? json['law_id'] ?? 0,
     );
   }
 }
@@ -28,7 +28,7 @@ class OpcionRespuesta {
   final int id;
   final int qid;
   final String txt;
-  final bool? correct; // Puede ser null si no viene en la respuesta
+  final bool? correct;
 
   OpcionRespuesta({
     required this.id,
@@ -39,10 +39,10 @@ class OpcionRespuesta {
 
   factory OpcionRespuesta.fromJson(Map<String, dynamic> json) {
     return OpcionRespuesta(
-      id: json['id'],
-      qid:json['qid'],
-      txt: json['txt'],
-      correct: json['correct'],
+      id: json['id'] ?? json['option_id'],
+      qid: json['qid'] ?? json['question_id'],
+      txt: json['txt'] ?? json['option_text'],
+      correct: json['correct'] ?? json['is_correct'],
     );
   }
 }

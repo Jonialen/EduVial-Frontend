@@ -79,9 +79,12 @@ class _SimulationScreenState extends State<SimulationScreen> {
             .map((json) => Pregunta.fromJson(json))
             .toList();
 
+        for (var p in todasLasPreguntas) {
+          print('ID: ${p.id} | Categoría: "${p.cat}" | Nivel: ${p.lvl}');}
+
         final nivelUsuario = getNivelDesdeRol(widget.rol);
         final preguntasFiltradas = todasLasPreguntas
-            .where((p) => p.lvl == nivelUsuario)
+            .where((p) => p.lvl == nivelUsuario )
             .toList();
 
         if (preguntasFiltradas.isNotEmpty) {

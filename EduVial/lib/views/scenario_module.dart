@@ -210,7 +210,7 @@ class _ScenarioModuleState extends State<ScenarioModule> {
                       ),
                       const SizedBox(height: 16),
                       Text("Nivel: ${preguntaActual!.lvl}"),
-                      //Text("Categoría: ${preguntaActual!.cat}")
+                      Text("Categoría: ${preguntaActual!.cat}")
 
                     ],
                   ),

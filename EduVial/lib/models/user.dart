@@ -17,7 +17,7 @@ class User {
   Map<String, dynamic> toJson() => {
     'name': name,
     'email': email,
-    'password': password, // ❗️Quitar en producción
+    'password': password, // Quitar en producción
     'role': role,
   };
 
