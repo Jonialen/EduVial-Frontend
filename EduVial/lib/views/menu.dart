@@ -268,7 +268,7 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
                             CoinButton(
                               icon: Icons.star,
                               size: 86,
-                              // paleta “moneda” azul (como tu header)
+                              // paleta moneda azul 
                               rimDark: const Color(0xFF0D47A1),
                               rimLight: const Color(0xFF90CAF9),
                               faceDark: const Color(0xFF1976D2),
