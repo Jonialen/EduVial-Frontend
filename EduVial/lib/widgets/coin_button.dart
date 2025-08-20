@@ -76,7 +76,7 @@ class _CoinButtonState extends State<CoinButton> {
                 ),
               ),
 
-            // CUERPO DEL CILINDRO  - colores más intensos del botón
+            // CUERPO DEL CILINDRO (lateral) - colores más intensos del botón
             Positioned(
               top: s / 2,
               child: Container(
@@ -220,7 +220,7 @@ class _CoinButtonState extends State<CoinButton> {
   }
 }
 
-/* Ejemplo de uso:
+// Ejemplo de uso:
 class ExampleUsage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -230,7 +230,7 @@ class ExampleUsage extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Botón como
+            // Botón como en la imagen (azul)
             CoinButton(
               icon: Icons.fast_forward,
               onTap: () => print('Botón presionado!'),
@@ -239,7 +239,7 @@ class ExampleUsage extends StatelessWidget {
 
             SizedBox(height: 40),
 
-            // Versión dorada ()
+            // Versión dorada (tu diseño original)
             CoinButton(
               icon: Icons.play_arrow,
               onTap: () => print('Botón dorado presionado!'),
@@ -268,4 +268,4 @@ class ExampleUsage extends StatelessWidget {
       ),
     );
   }
-}*/
+}
