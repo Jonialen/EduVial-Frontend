@@ -100,11 +100,12 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
       {
         'nombre': 'Simulaciones',
         'icono': Icons.videogame_asset,
-        // paleta “moneda” roja
+        // paleta "moneda" roja
         'rimDark': const Color(0xFFB23A2E),
         'rimLight': const Color(0xFFFF9E80),
         'faceDark': const Color(0xFFE53935),
         'faceLight': const Color(0xFFFF8A80),
+        'depth': 6.0, // Profundidad 3D
         'onTap': () {
           Navigator.push(
             context,
@@ -117,11 +118,12 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
       {
         'nombre': 'Señales',
         'icono': Icons.traffic,
-        // paleta “moneda” naranja
+        // paleta "moneda" naranja
         'rimDark': const Color(0xFFCC7A00),
         'rimLight': const Color(0xFFFFD180),
         'faceDark': const Color(0xFFFF9800),
         'faceLight': const Color(0xFFFFE0B2),
+        'depth': 6.0, // Profundidad 3D
         'onTap': () {
           Navigator.push(
             context,
@@ -134,11 +136,12 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
       {
         'nombre': 'Escenarios',
         'icono': Icons.landscape,
-        // paleta “moneda” verde
+        // paleta "moneda" verde
         'rimDark': const Color(0xFF2E7D32),
         'rimLight': const Color(0xFFA5D6A7),
         'faceDark': const Color(0xFF2DBD3A),
         'faceLight': const Color(0xFF6CD93B),
+        'depth': 6.0, // Profundidad 3D
         'onTap': () {
           Navigator.push(
             context,
@@ -166,6 +169,7 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
                   rimLight: m['rimLight'],
                   faceDark: m['faceDark'],
                   faceLight: m['faceLight'],
+                  depth: m['depth'], // Agregar profundidad 3D
                   onTap: m['onTap'],
                 ),
                 const SizedBox(height: 8),
@@ -268,11 +272,12 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
                             CoinButton(
                               icon: Icons.star,
                               size: 86,
-                              // paleta moneda azul 
+                              // paleta moneda azul
                               rimDark: const Color(0xFF0D47A1),
                               rimLight: const Color(0xFF90CAF9),
                               faceDark: const Color(0xFF1976D2),
                               faceLight: const Color(0xFF64B5F6),
+                              depth: 8.0, // Profundidad 3D más pronunciada para botón principal
                               onTap: () {
                                 global_identifier.counter = 0;
                                 _togglePrincipianteSubmodulos();
@@ -300,11 +305,12 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
                             CoinButton(
                               icon: Icons.menu_book, // libro como tu ejemplo
                               size: 86,
-                              // paleta “moneda” dorada
+                              // paleta "moneda" dorada
                               rimDark: const Color(0xFFB57A00),
                               rimLight: const Color(0xFFFFE082),
                               faceDark: const Color(0xFFF4C23A),
                               faceLight: const Color(0xFFFFF3A0),
+                              depth: 8.0, // Profundidad 3D más pronunciada para botón principal
                               onTap: () {
                                 global_identifier.counter = 1;
                                 _toggleAvanzadoSubmodulos();
