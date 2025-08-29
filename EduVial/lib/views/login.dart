@@ -40,14 +40,7 @@ class _LoginScreenState extends State<LoginScreen> {
       final name = (result['user']?['name'] as String?) ?? 'Usuario';
       final role = (result['user']?['role'] as String?) ?? 'principiante';
 
-      // Guardar usuario local (⚠️ con password, solo dev)
-      final user = User(
-        name: name,
-        email: email,
-        password: password,
-        role: role,
-      );
-      await saveUserLocal(user);
+
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -65,25 +58,9 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  Future<void> _onGuestPressed() async {
-    final user = User(
-      name: 'Invitado',
-      email: 'invitado@eduvial.app',
-      password: '',
-      role: 'invitado',
-    );
-    await saveUserLocal(user);
 
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Entraste como invitado')),
-    );
 
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => Menu()),
-    );
-  }
+
 
   void _onRegisterPressed() {
     Navigator.push(
@@ -125,8 +102,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 onPressed: _onLoginPressed,
                 child: const Text('Iniciar sesión'),
               ),
-              ElevatedButton(
-                onPressed: _onGuestPressed,
+             ElevatedButton(
+                onPressed: _onLoginPressed,
                 child: const Text('Ingresar como invitado'),
               ),
               TextButton(

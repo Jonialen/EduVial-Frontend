@@ -3,72 +3,218 @@ import 'dart:convert';
 import '../models/user.dart';
 import '../config/constants.dart';
 
+// import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
+/// =====================
+/// Storage embebido aquí
+/// =====================
+abstract class _AuthStore {
+  Future<void> saveToken(String token);
+  Future<String?> loadToken();
+  Future<void> clearToken();
+
+  Future<void> saveUserJson(String userJson);
+  Future<String?> loadUserJson();
+  Future<void> clearUserJson();
+}
+
+/// En memoria (cero I/O). Perfecto para integration/unit tests.
+class _MemoryAuthStore implements _AuthStore {
+  String? _token;
+  String? _userJson;
+
+  @override
+  Future<void> saveToken(String token) async => _token = token;
+
+  @override
+  Future<String?> loadToken() async => _token;
+
+  @override
+  Future<void> clearToken() async => _token = null;
+
+  @override
+  Future<void> saveUserJson(String userJson) async => _userJson = userJson;
+
+  @override
+  Future<String?> loadUserJson() async => _userJson;
+
+  @override
+  Future<void> clearUserJson() async => _userJson = null;
+}
+
+/// (Opcional) Seguro para producción con flutter_secure_storage
+// class _SecureAuthStore implements _AuthStore {
+//   static const _kTokenKey = 'auth_token';
+//   static const _kUserKey  = 'user_json';
+//   final FlutterSecureStorage _secure = const FlutterSecureStorage();
+//
+//   @override
+//   Future<void> saveToken(String token) =>
+//       _secure.write(key: _kTokenKey, value: token);
+//
+//   @override
+//   Future<String?> loadToken() => _secure.read(key: _kTokenKey);
+//
+//   @override
+//   Future<void> clearToken() => _secure.delete(key: _kTokenKey);
+//
+//   @override
+//   Future<void> saveUserJson(String userJson) =>
+//       _secure.write(key: _kUserKey, value: userJson);
+//
+//   @override
+//   Future<String?> loadUserJson() => _secure.read(key: _kUserKey);
+//
+//   @override
+//   Future<void> clearUserJson() => _secure.delete(key: _kUserKey);
+// }
+
 class auth_controller {
-  // 1. Función para Login ----------------------------------
+  // Store por defecto: memoria (no rompe tests)
+  static _AuthStore _store = _MemoryAuthStore();
+
+
+  /// Ejemplo prod: `auth_controller.configureStore(_SecureAuthStore());`
+  static void configureStore(_AuthStore store) {
+    _store = store;
+  }
+
+  // ===== Helpers reutilizables =====
+
+  static Map<String, String> _jsonHeaders([Map<String, String>? extra]) => {
+    'Content-Type': 'application/json',
+    if (extra != null) ...extra,
+  };
+
+  static String _extractError(String body) {
+    try {
+      final j = jsonDecode(body);
+      return (j['message'] ?? j['error'] ?? 'Error desconocido').toString();
+    } catch (_) {
+      return body.isEmpty ? 'Error desconocido' : body;
+    }
+  }
+
+  static Future<http.Response> _authedGet(Uri uri) async {
+    final token = await _store.loadToken();
+    if (token == null) {
+      // simulamos 401 coherente si no hay token
+      return http.Response(jsonEncode({'error': 'No hay token'}), 401);
+    }
+    return http
+        .get(uri, headers: _jsonHeaders({'Authorization': 'Bearer $token'}))
+        .timeout(const Duration(seconds: 10));
+  }
+
+  // ==============================
+  // 1) LOGIN
+  // ==============================
   static Future<Map<String, dynamic>> login(String email, String password) async {
     try {
-      final body = jsonEncode({
-        'email': email,
-        'password': password,
-      });
-
-      print('🔹 JSON enviado al backend: $body');
+      final body = jsonEncode({'email': email, 'password': password});
 
       final response = await http.post(
         Uri.parse(ApiConstants.loginEndpoint),
-        body: body,
         headers: {'Content-Type': 'application/json'},
+        body: body,
       );
 
       print('🔹 Status code: ${response.statusCode}');
       print('🔹 Respuesta del backend: ${response.body}');
 
       if (response.statusCode == 200) {
-        return {
-          'success': true,
-          'data': jsonDecode(response.body),
-        };
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+
+        // 1) EXTRAER Y GUARDAR TOKEN
+        final token = (data['token'] ?? data['accessToken'])?.toString();
+        if (token == null || token.isEmpty) {
+          return {'success': false, 'error': 'No vino token en la respuesta'};
+        }
+        print('🔑 JWT recibido: $token');
+        await _store.saveToken(token); // <-- guarda el token
+
+        // 2) (Opcional) Traer el user y cachearlo
+        final me = await getMeBasic();
+        if (me['success'] == true && me['user'] != null) {
+          await _store.saveUserJson(jsonEncode(me['user']));
+        }
+
+        return {'success': true, 'data': data};
       } else {
-        return {
-          'success': false,
-          'error': 'Credenciales incorrectas',
-        };
+        return {'success': false, 'error': 'Credenciales incorrectas'};
       }
     } catch (e) {
       print('🔸 Error de conexión: $e');
-      return {
-        'success': false,
-        'error': 'Error de conexión: $e',
-      };
+      return {'success': false, 'error': 'Error de conexión: $e'};
     }
   }
 
-
-  // 2. Función para Register -------------------------------
+  // ==============================
+  // 2) REGISTER
+  // ==============================
   static Future<Map<String, dynamic>> register(User user) async {
     try {
       final response = await http.post(
         Uri.parse(ApiConstants.registerEndpoint),
-        body: jsonEncode(user.toJson()), // Convierte el modelo User a JSON
-        headers: {'Content-Type': 'application/json'},
+        headers: _jsonHeaders(),
+        body: jsonEncode(user.toJson()),
       );
 
-      if (response.statusCode == 201) {
-        return {
-          'success': true,
-          'data': jsonDecode(response.body), // Datos del usuario registrado
-        };
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final jsonResp = jsonDecode(response.body) as Map<String, dynamic>;
+
+        // Algunos backends devuelven token al registrar
+        final token = (jsonResp['token'] ?? jsonResp['accessToken']) as String?;
+        if (token != null && token.isNotEmpty) {
+          await _store.saveToken(token);
+
+          final me = await getMeBasic();
+          if (me['success'] == true && me['user'] != null) {
+            await _store.saveUserJson(jsonEncode(me['user']));
+          }
+        }
+
+        return {'success': true, 'data': jsonResp};
       } else {
-        return {
-          'success': false,
-          'error': jsonDecode(response.body)['error'] ?? 'Error al registrar',
-        };
+        return {'success': false, 'error': _extractError(response.body)};
       }
     } catch (e) {
-      return {
-        'success': false,
-        'error': 'Error de conexión: $e',
-      };
+      return {'success': false, 'error': 'Error de conexión: $e'};
     }
   }
+
+  // ==============================
+  // 3) GET /user/me/basic
+  // ==============================
+  static Future<Map<String, dynamic>> getMeBasic() async {
+    try {
+      final resp = await _authedGet(Uri.parse(ApiConstants.meBasicEndpoint));
+
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body) as Map<String, dynamic>;
+        return {'success': true, 'user': data};
+      } else if (resp.statusCode == 401) {
+        await logout();
+        return {'success': false, 'error': 'Sesión expirada'};
+      } else {
+        return {'success': false, 'error': _extractError(resp.body)};
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Error de conexión: $e'};
+    }
+  }
+
+  // ==============================
+  // 4) LOGOUT
+  // ==============================
+  static Future<void> logout() async {
+    await _store.clearToken();
+    await _store.clearUserJson();
+  }
+
+  // ==============================
+  // 5) Accesos al cache (opcionales)
+  // ==============================
+  static Future<String?> loadCachedUserJson() => _store.loadUserJson();
+  static Future<void> saveCachedUserJson(String raw) => _store.saveUserJson(raw);
 }

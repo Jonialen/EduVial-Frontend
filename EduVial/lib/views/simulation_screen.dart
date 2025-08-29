@@ -84,7 +84,7 @@ class _SimulationScreenState extends State<SimulationScreen> {
 
         final nivelUsuario = getNivelDesdeRol(widget.rol);
         final preguntasFiltradas = todasLasPreguntas
-            .where((p) => p.lvl == nivelUsuario )
+            .where((p) => p.lvl == nivelUsuario && p.cat == "Simulaciones")
             .toList();
 
         if (preguntasFiltradas.isNotEmpty) {

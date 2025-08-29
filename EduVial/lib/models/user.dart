@@ -1,62 +1,52 @@
+// lib/models/user.dart
 import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class User {
   final String name;
   final String email;
-  final String password; // ⚠️ DEV ONLY: se persiste temporalmente
-  final String role;     // p.ej. "principiante", "invitado", "user"
+  final String password; // ⚠️ usualmente no se devuelve del backend, pero lo dejamos si lo usas en register/login
+  final String role;     // Ej: "principiante", "user"
+  final int? points;     // Nuevo, puede ser null si no lo manda el backend
 
-  const User({
+  User({
     required this.name,
     required this.email,
     required this.password,
     required this.role,
+    this.points,
   });
 
-  Map<String, dynamic> toJson() => {
-    'name': name,
-    'email': email,
-    'password': password, // Quitar en producción
-    'role': role,
-  };
+  // Convierte el objeto a JSON (para enviar al backend)
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'email': email,
+      'password': password,
+      'role': role,
+      if (points != null) 'points': points, // solo incluir si existe
+    };
+  }
 
-  factory User.fromJson(Map<String, dynamic> json) => User(
-    name: json['name'] ?? '',
-    email: json['email'] ?? '',
-    password: json['password'] ?? '',
-    role: json['role'] ?? '',
-  );
-}
+  // Crea un User desde JSON recibido del backend
+  factory User.fromJson(Map<String, dynamic> json) {
+    return User(
+      name: json['name'] ?? '',
+      email: json['email'] ?? '',
+      password: json['password'] ?? '',
+      role: json['role'] ?? '',
+      points: json['points'] != null ? json['points'] as int : null,
+    );
+  }
 
-// -------- Estado global + persistencia local --------
-
-User? currentUser; // Usuario actual en memoria
-const _kUserProfileKey = 'user_profile';
-
-Future<void> saveUserLocal(User user) async {
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.setString(_kUserProfileKey, jsonEncode(user.toJson()));
-  currentUser = user;
-}
-
-Future<User?> loadUserLocal() async {
-  final prefs = await SharedPreferences.getInstance();
-  final raw = prefs.getString(_kUserProfileKey);
-  if (raw == null) {
-    currentUser = null;
+  /// Helpers para serializar/deserializar en string
+  static User? fromRawJson(String? raw) {
+    if (raw == null) return null;
+    try {
+      final map = jsonDecode(raw);
+      if (map is Map<String, dynamic>) return User.fromJson(map);
+    } catch (_) {}
     return null;
   }
-  try {
-    currentUser = User.fromJson(jsonDecode(raw));
-  } catch (_) {
-    currentUser = null;
-  }
-  return currentUser;
-}
 
-Future<void> clearUserLocal() async {
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.remove(_kUserProfileKey);
-  currentUser = null;
+  String toRawJson() => jsonEncode(toJson());
 }
