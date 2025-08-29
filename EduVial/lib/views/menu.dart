@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:eduvial/views/SignalModule.dart';
 import 'package:eduvial/views/simulation_screen.dart';
 import 'package:eduvial/views/UserProfile.dart';
 import 'package:eduvial/controllers/global_identifier.dart';
 import 'package:eduvial/views/scenario_module.dart';
+import 'package:eduvial/controllers/auth_controller.dart'; // <-- puntos
 import '../widgets/mascot/traffic_mascot.dart';
 import '../widgets/coin_button.dart'; //  CoinButton
 
@@ -31,6 +33,10 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
     MascotState.alert,
   ];
 
+  // --- NUEVO: puntos / loading ---
+  int? _points;          // null = aún no cargados
+  bool _loadingPoints = false;
+
   @override
   void initState() {
     super.initState();
@@ -56,6 +62,44 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
         });
       }
     });
+
+    // cargar puntos
+    _loadPoints();
+  }
+
+  Future<void> _loadPoints() async {
+    setState(() => _loadingPoints = true);
+
+    try {
+      // 1) Cache rápido (si lo tuvieras guardado en el userJson)
+      final raw = await auth_controller.loadCachedUserJson();
+      if (raw != null) {
+        try {
+          final map = jsonDecode(raw) as Map<String, dynamic>;
+          if (map['points'] is int && mounted) {
+            _points = map['points'] as int;
+            setState(() {}); // pinta provisional
+          }
+        } catch (_) {}
+      }
+
+      // 2) Refrescar desde backend
+      //    Primero intentar /me/basic (si ahí vienen points)
+      final me = await auth_controller.getMeBasic();
+      if (me['success'] == true && me['user'] != null) {
+        final u = me['user'] as Map<String, dynamic>;
+        await auth_controller.saveCachedUserJson(jsonEncode(u));
+        if (mounted && u['points'] is int) {
+          setState(() => _points = u['points'] as int);
+        }
+      } else {
+        // fallback: usar GET directo de puntos
+        final p = await auth_controller.getUserPoints();
+        if (mounted && p != null) setState(() => _points = p);
+      }
+    } finally {
+      if (mounted) setState(() => _loadingPoints = false);
+    }
   }
 
   @override
@@ -80,7 +124,26 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
     });
   }
 
-  void _toggleAvanzadoSubmodulos() {
+  // --- Nvalidar puntos antes de abrir Avanzados ---
+  Future<void> _tryToggleAvanzadoSubmodulos() async {
+    if (_points == null && !_loadingPoints) {
+      await _loadPoints();
+    }
+
+    final pts = _points ?? 0;
+    if (pts < 75) {
+      setState(() => _mascotState = MascotState.alert);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Necesitas al menos 75 puntos para acceder a los módulos avanzados.'),
+        ),
+      );
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) setState(() => _mascotState = MascotState.idle);
+      });
+      return;
+    }
+
     setState(() {
       _showAvanzadoSubmodulos = !_showAvanzadoSubmodulos;
       _showPrincipianteSubmodulos = false;
@@ -105,7 +168,7 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
         'rimLight': const Color(0xFFFF9E80),
         'faceDark': const Color(0xFFE53935),
         'faceLight': const Color(0xFFFF8A80),
-        'depth': 6.0, // Profundidad 3D
+        'depth': 6.0,
         'onTap': () {
           Navigator.push(
             context,
@@ -123,7 +186,7 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
         'rimLight': const Color(0xFFFFD180),
         'faceDark': const Color(0xFFFF9800),
         'faceLight': const Color(0xFFFFE0B2),
-        'depth': 6.0, // Profundidad 3D
+        'depth': 6.0,
         'onTap': () {
           Navigator.push(
             context,
@@ -141,7 +204,7 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
         'rimLight': const Color(0xFFA5D6A7),
         'faceDark': const Color(0xFF2DBD3A),
         'faceLight': const Color(0xFF6CD93B),
-        'depth': 6.0, // Profundidad 3D
+        'depth': 6.0,
         'onTap': () {
           Navigator.push(
             context,
@@ -169,7 +232,7 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
                   rimLight: m['rimLight'],
                   faceDark: m['faceDark'],
                   faceLight: m['faceLight'],
-                  depth: m['depth'], // Agregar profundidad 3D
+                  depth: m['depth'],
                   onTap: m['onTap'],
                 ),
                 const SizedBox(height: 8),
@@ -190,6 +253,9 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    final pointsText = (_points == null) ? '—' : _points.toString();
+    final canEnterAdvanced = (_points ?? 0) >= 75;
+
     return Scaffold(
       body: Stack(
         children: [
@@ -214,26 +280,68 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF1565C0),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: IconButton(
-                            icon: const Icon(
-                              Icons.person,
-                              color: Colors.white,
+
+                        // --- NUEVO: chip de puntos + refresh + perfil ---
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: canEnterAdvanced ? Colors.green : Colors.grey,
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.workspace_premium, size: 18, color: Colors.white),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    pointsText,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => ProfileScreen(),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              tooltip: 'Refrescar puntos',
+                              icon: _loadingPoints
+                                  ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
                                 ),
-                              );
-                            },
-                          ),
+                              )
+                                  : const Icon(Icons.refresh, color: Colors.white),
+                              onPressed: _loadingPoints ? null : _loadPoints,
+                            ),
+                            const SizedBox(width: 4),
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1565C0),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: IconButton(
+                                icon: const Icon(
+                                  Icons.person,
+                                  color: Colors.white,
+                                ),
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => const ProfileScreen(),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -277,7 +385,7 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
                               rimLight: const Color(0xFF90CAF9),
                               faceDark: const Color(0xFF1976D2),
                               faceLight: const Color(0xFF64B5F6),
-                              depth: 8.0, // Profundidad 3D más pronunciada para botón principal
+                              depth: 8.0,
                               onTap: () {
                                 global_identifier.counter = 0;
                                 _togglePrincipianteSubmodulos();
@@ -303,17 +411,17 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
                             ),
                             const SizedBox(height: 10),
                             CoinButton(
-                              icon: Icons.menu_book, // libro como tu ejemplo
+                              icon: Icons.menu_book,
                               size: 86,
                               // paleta "moneda" dorada
                               rimDark: const Color(0xFFB57A00),
                               rimLight: const Color(0xFFFFE082),
                               faceDark: const Color(0xFFF4C23A),
                               faceLight: const Color(0xFFFFF3A0),
-                              depth: 8.0, // Profundidad 3D más pronunciada para botón principal
-                              onTap: () {
+                              depth: 8.0,
+                              onTap: () async {
                                 global_identifier.counter = 1;
-                                _toggleAvanzadoSubmodulos();
+                                await _tryToggleAvanzadoSubmodulos(); // <-- valida puntos
                               },
                             ),
                             if (_showAvanzadoSubmodulos)

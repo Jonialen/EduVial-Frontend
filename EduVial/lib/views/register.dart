@@ -8,53 +8,102 @@ class RegisterScreen extends StatefulWidget {
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
 }
+
 class _RegisterScreenState extends State<RegisterScreen> {
-  final nameController= TextEditingController();
+  final nameController = TextEditingController();
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
-  String? selectedLevel; //
+  String? selectedLevel; // "Principiante" | "Avanzado" (texto visible)
+  bool cargando = false;
 
-  void _onClick() async {
+  @override
+  void dispose() {
+    nameController.dispose();
+    emailController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
+
+  /// Mapea el texto visible a los valores que espera el backend/reglas
+  String _normalizeRole(String raw) {
+    final v = raw.trim().toLowerCase();
+    if (v.startsWith('avan')) return 'avanzado';
+    return 'principiante';
+  }
+
+  Future<void> _onClick() async {
     final name = nameController.text.trim();
     final email = emailController.text.trim();
     final password = passwordController.text.trim();
 
-    if (selectedLevel == null) {
+    if (name.isEmpty || email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Por favor selecciona un nivel")),
+        const SnackBar(content: Text("Completa nombre, correo y contraseña.")),
       );
       return;
     }
 
-    final user = User(
-      name: name,
-      email: email,
-      password: password,
-      role: selectedLevel!.toLowerCase(),
-    );
-
-    final result = await auth_controller.register(user);
-
-    if (result['success']) {
+    if (selectedLevel == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Registro exitoso")),
+        const SnackBar(content: Text("Por favor selecciona un nivel.")),
+      );
+      return;
+    }
+
+    final role = _normalizeRole(selectedLevel!);
+
+    setState(() => cargando = true);
+    try {
+      final user = User(
+        name: name,
+        email: email,
+        password: password,
+        role: role,            // "avanzado" | "principiante"
+        // points: opcional/null; el back los setea después según rol
       );
 
-      Navigator.pop(context);
-    } else {
+      final result = await auth_controller.register(user);
+
+      if (result['success'] == true) {
+        // En este punto el auth_controller ya:
+        // - guardó token (si vino)
+        // - seteo puntos (PUT /points/me -> 75/0 según rol)
+        // - cacheó el user si fue posible
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              role == 'avanzado'
+                  ? "Registro exitoso. Se asignaron 75 puntos."
+                  : "Registro exitoso.",
+            ),
+          ),
+        );
+        Navigator.pop(context); // vuelve al login o pantalla anterior
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: ${result['error'] ?? 'No especificado'}")),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: ${result['error']}")),
+        SnackBar(content: Text("Error de registro: $e")),
       );
+    } finally {
+      if (mounted) setState(() => cargando = false);
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
+    final themeBlue = Colors.blue;
+
     return Scaffold(
       appBar: AppBar(
-        title: Text("Registro"),
-        backgroundColor: Colors.blue,
+        title: const Text("Registro"),
+        backgroundColor: themeBlue,
         elevation: 4,
       ),
       body: Center(
@@ -72,6 +121,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
               TextField(
                 controller: nameController,
+                textInputAction: TextInputAction.next,
                 decoration: const InputDecoration(
                   labelText: 'Nombre',
                   border: OutlineInputBorder(),
@@ -81,6 +131,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
               TextField(
                 controller: emailController,
+                keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.next,
                 decoration: const InputDecoration(
                   labelText: 'Correo Electrónico',
                   border: OutlineInputBorder(),
@@ -95,22 +147,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   border: OutlineInputBorder(),
                 ),
                 obscureText: true,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => !cargando ? _onClick() : null,
               ),
               const SizedBox(height: 24),
 
-              /// 🔽 Selector de nivel
+              // Selector de nivel
               PopupMenuButton<String>(
-                onSelected: (value) {
-                  setState(() {
-                    selectedLevel = value;
-                  });
-                },
-                itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                  const PopupMenuItem<String>(
+                onSelected: (value) => setState(() => selectedLevel = value),
+                itemBuilder: (BuildContext context) => const <PopupMenuEntry<String>>[
+                  PopupMenuItem<String>(
                     value: 'Principiante',
                     child: Text('Principiante'),
                   ),
-                  const PopupMenuItem<String>(
+                  PopupMenuItem<String>(
                     value: 'Avanzado',
                     child: Text('Avanzado'),
                   ),
@@ -137,9 +187,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
               const SizedBox(height: 24),
 
-              ElevatedButton(
-                onPressed: _onClick,
-                child: const Text('Registrarme'),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: cargando ? null : _onClick,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: themeBlue,
+                    disabledBackgroundColor: themeBlue.withOpacity(0.5),
+                  ),
+                  child: cargando
+                      ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
+                      : const Text('Registrarme'),
+                ),
               ),
             ],
           ),
@@ -148,4 +212,3 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 }
-

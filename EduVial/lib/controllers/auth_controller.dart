@@ -73,7 +73,6 @@ class auth_controller {
   // Store por defecto: memoria (no rompe tests)
   static _AuthStore _store = _MemoryAuthStore();
 
-
   /// Ejemplo prod: `auth_controller.configureStore(_SecureAuthStore());`
   static void configureStore(_AuthStore store) {
     _store = store;
@@ -106,6 +105,20 @@ class auth_controller {
         .timeout(const Duration(seconds: 10));
   }
 
+  static Future<http.Response> _authedPut(Uri uri, Map<String, dynamic> body) async {
+    final token = await _store.loadToken();
+    if (token == null) {
+      return http.Response(jsonEncode({'error': 'No hay token'}), 401);
+    }
+    return http
+        .put(
+      uri,
+      headers: _jsonHeaders({'Authorization': 'Bearer $token'}),
+      body: jsonEncode(body),
+    )
+        .timeout(const Duration(seconds: 10));
+  }
+
   // ==============================
   // 1) LOGIN
   // ==============================
@@ -131,7 +144,7 @@ class auth_controller {
           return {'success': false, 'error': 'No vino token en la respuesta'};
         }
         print('🔑 JWT recibido: $token');
-        await _store.saveToken(token); // <-- guarda el token
+        await _store.saveToken(token); // guarda el token
 
         // 2) (Opcional) Traer el user y cachearlo
         final me = await getMeBasic();
@@ -150,7 +163,7 @@ class auth_controller {
   }
 
   // ==============================
-  // 2) REGISTER
+  // 2) REGISTER  (setea puntos según rol con PUT)
   // ==============================
   static Future<Map<String, dynamic>> register(User user) async {
     try {
@@ -168,10 +181,20 @@ class auth_controller {
         if (token != null && token.isNotEmpty) {
           await _store.saveToken(token);
 
+          // (Opcional) cachear perfil
           final me = await getMeBasic();
           if (me['success'] == true && me['user'] != null) {
             await _store.saveUserJson(jsonEncode(me['user']));
           }
+        }
+
+        // ===== regla de puntos según rol =====
+        final roleLower = user.role.toLowerCase().trim();
+        if (roleLower == 'avanzado') {
+          await setUserPoints(75);
+        } else if (roleLower == 'principiante') {
+          // si el backend ya inicia en 0 por defecto, esto es opcional
+          await setUserPoints(0);
         }
 
         return {'success': true, 'data': jsonResp};
@@ -205,7 +228,45 @@ class auth_controller {
   }
 
   // ==============================
-  // 4) LOGOUT
+  // 4) PUNTOS (mismo endpoint GET/PUT)
+  // ==============================
+  /// GET puntos actuales del usuario.
+  static Future<int?> getUserPoints() async {
+    try {
+      final resp = await _authedGet(Uri.parse(ApiConstants.pointsEndpoint));
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body);
+        if (data is Map && data['points'] is int) return data['points'] as int;
+        if (data is Map && data['data'] is Map && data['data']['points'] is int) {
+          return data['data']['points'] as int;
+        }
+        return 0; // fallback si no viene el campo
+      } else if (resp.statusCode == 401) {
+        await logout();
+        return null;
+      } else {
+        return null;
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// PUT para establecer los puntos del usuario.
+  static Future<bool> setUserPoints(int value) async {
+    try {
+      final resp = await _authedPut(
+        Uri.parse(ApiConstants.pointsEndpoint),
+        {'points': value}, // ajusta el nombre si tu backend espera otro
+      );
+      return resp.statusCode == 200 || resp.statusCode == 204;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // ==============================
+  // 5) LOGOUT
   // ==============================
   static Future<void> logout() async {
     await _store.clearToken();
@@ -213,7 +274,7 @@ class auth_controller {
   }
 
   // ==============================
-  // 5) Accesos al cache (opcionales)
+  // 6) Accesos al cache (opcionales)
   // ==============================
   static Future<String?> loadCachedUserJson() => _store.loadUserJson();
   static Future<void> saveCachedUserJson(String raw) => _store.saveUserJson(raw);

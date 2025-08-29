@@ -36,7 +36,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final result = await auth_controller.login(email, password);
 
     if (result['success'] == true) {
-      // Si tu controlador devuelve datos del usuario, úsalos:
+
       final name = (result['user']?['name'] as String?) ?? 'Usuario';
       final role = (result['user']?['role'] as String?) ?? 'principiante';
 
@@ -102,10 +102,16 @@ class _LoginScreenState extends State<LoginScreen> {
                 onPressed: _onLoginPressed,
                 child: const Text('Iniciar sesión'),
               ),
-             ElevatedButton(
-                onPressed: _onLoginPressed,
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const Menu()),
+                  );
+                },
                 child: const Text('Ingresar como invitado'),
               ),
+
               TextButton(
                 onPressed: _onRegisterPressed,
                 child: const Text('¿No tienes cuenta? Regístrate'),
