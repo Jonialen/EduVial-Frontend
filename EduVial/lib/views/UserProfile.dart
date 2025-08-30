@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:eduvial/models/user.dart';
 import 'package:eduvial/controllers/auth_controller.dart';
+import 'package:eduvial/views/login.dart'; // 👈 necesario para volver a Login
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -57,6 +58,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _confirmAndLogout() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cerrar sesión'),
+        content: const Text('¿Seguro que deseas cerrar sesión?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Cerrar sesión'),
+          ),
+        ],
+      ),
+    );
+
+    if (ok != true) return;
+
+    // Limpia token + usuario cacheado
+    await auth_controller.logout();
+
+    if (!mounted) return;
+
+    // SnackBar de confirmación
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Sesión cerrada')),
+    );
+
+    // Llevar a Login y limpiar historial
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (route) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (cargando && _user == null) {
@@ -67,8 +104,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final nombre = _user?.name ?? '—';
     final correo = _user?.email ?? '—';
-    final rol    = (_user?.role?.isNotEmpty ?? false) ? _user!.role : '—';
-    final puntos = _user?.points?.toString() ?? '—'; // puede venir null en login
+    final puntos = _user?.points?.toString() ?? '—';
 
     return Scaffold(
       body: RefreshIndicator(
@@ -143,10 +179,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           fontSize: 18,
                         ),
                       ),
-                      subtitle: Text(
-                        nombre,
-                        style: const TextStyle(fontSize: 16),
-                      ),
+                      subtitle: Text(nombre, style: const TextStyle(fontSize: 16)),
                     ),
                     const Divider(),
 
@@ -161,10 +194,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           fontSize: 18,
                         ),
                       ),
-                      subtitle: Text(
-                        correo,
-                        style: const TextStyle(fontSize: 16),
-                      ),
+                      subtitle: Text(correo, style: const TextStyle(fontSize: 16)),
                       trailing: cargando
                           ? const SizedBox(
                         height: 20, width: 20,
@@ -185,30 +215,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           fontSize: 18,
                         ),
                       ),
-                      subtitle: Text(
-                        puntos,
-                        style: const TextStyle(fontSize: 16),
-                      ),
+                      subtitle: Text(puntos, style: const TextStyle(fontSize: 16)),
                     ),
                     const Divider(),
 
-                    // Rol (si no viene en /me/basic quedará "—")
-                    /*ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text(
-                        'Rol:',
-                        style: TextStyle(
-                          color: Color(0xFF1976D2),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
-                        ),
-                      ),
-                      subtitle: Text(
-                        rol,
-                        style: const TextStyle(fontSize: 16),
+                    const SizedBox(height: 16),
+
+                    // 🔴 Botón Cerrar sesión
+                    ElevatedButton.icon(
+                      onPressed: _confirmAndLogout,
+                      icon: const Icon(Icons.logout),
+                      label: const Text('Cerrar sesión'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size.fromHeight(48),
                       ),
                     ),
-                    const Divider(),*/
                   ],
                 ),
               ),
@@ -219,3 +242,4 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 }
+
