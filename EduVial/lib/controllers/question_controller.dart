@@ -44,7 +44,7 @@ class QuestionController extends ChangeNotifier {
   bool get answerShown => _answerShown;
 
   int get index => _index;
-  int get scoreLesson => _scoreLesson; // en preguntas correctas; en UI lo puedes mostrar * 5
+  int get scoreLesson => _scoreLesson;
   int get scoreLessonPoints => _scoreLesson * 5;
   int? get userPoints => _userPoints;
 

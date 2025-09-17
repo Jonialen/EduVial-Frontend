@@ -47,10 +47,8 @@ class _LoginScreenState extends State<LoginScreen> {
         const SnackBar(content: Text('¡Inicio de sesión exitoso!')),
       );
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => Menu()),
-      );
+      Navigator.pushReplacementNamed(context, '/main');
+
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(result['error'] ?? 'Error de login')),

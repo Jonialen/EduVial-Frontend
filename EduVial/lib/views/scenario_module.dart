@@ -9,7 +9,7 @@ class ScenarioModule extends StatelessWidget {
   const ScenarioModule({super.key, required this.rol});
 
   String _mapNivelToData(String nivelUI) {
-    // Ajusta a tus valores reales en BD
+    //filtar el nievl del usuario actual
     if (global_identifier.counter == 0) return 'Básico';
     if (global_identifier.counter == 1) return 'Avanzado';
     return nivelUI.toLowerCase().startsWith('p') ? 'Básico' : 'Avanzado';

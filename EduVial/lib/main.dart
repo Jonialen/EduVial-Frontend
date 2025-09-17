@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
-import 'views//login.dart';
+import 'views/login.dart';
+import 'views/main_shell.dart';
 
-//Preview
 void main() {
-  runApp(const MaterialApp(
+  runApp(MaterialApp(
     debugShowCheckedModeBanner: false,
-    home: LoginScreen(),
+    home: const LoginScreen(),
+    routes: {
+      '/main': (_) => const MainShell(),  // <- ruta al shell
+    },
   ));
 }
