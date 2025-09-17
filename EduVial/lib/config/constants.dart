@@ -9,6 +9,9 @@ class ApiConstants{
 
   //puntos
   static const String pointsEndpoint = '$apiBaseUrl/api/user/me/score';
+  //preguntas
+  static const String questEndpoint = '$apiBaseUrl/api/quest';
+
 
 }
 
