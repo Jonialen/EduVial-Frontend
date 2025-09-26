@@ -1,19 +1,16 @@
-// lib/views/simulation_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:eduvial/controllers/question_controller.dart';
 import 'package:eduvial/controllers/global_identifier.dart';
 
 class SimulationScreen extends StatelessWidget {
-  final String rol; // 'principiante' | 'avanzado' (texto de tu UI)
+  final String rol;
 
   const SimulationScreen({super.key, required this.rol});
 
   String _mapNivelToData(String nivelUI) {
-    // Ajusta a tus valores reales de BD: en tu app venías usando 'Básico' y 'Avanzado'
     if (global_identifier.counter == 0) return 'Básico';
     if (global_identifier.counter == 1) return 'Avanzado';
-    // Fallback por si llega otro texto
     return nivelUI.toLowerCase().startsWith('p') ? 'Básico' : 'Avanzado';
   }
 
@@ -23,8 +20,8 @@ class SimulationScreen extends StatelessWidget {
 
     return ChangeNotifierProvider(
       create: (_) => QuestionController(
-        category: 'Simulaciones',  // <- categoría para filtrar preguntas
-        level: levelForData,       // <- 'Básico' | 'Avanzado'
+        category: 'Simulaciones',
+        level: levelForData,
         maxQuestions: 5,
       )..init(),
       child: const _SimulationView(),
@@ -40,6 +37,33 @@ class _SimulationView extends StatefulWidget {
 }
 
 class _SimulationViewState extends State<_SimulationView> {
+  static const _autoAdvanceDelay = Duration(milliseconds: 2500);
+
+  Future<void> _handleVerifyAndAutoAdvance(QuestionController qc) async {
+    final result = qc.verifySelected();
+    if (result == null) return; // no había selección
+
+    // Feedback inmediato
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(result ? '¡Correcto! +5 puntos' : 'Respuesta incorrecta'),
+        backgroundColor: result ? Colors.green : Colors.red,
+        duration: const Duration(milliseconds: 1200),
+      ),
+    );
+
+    // Espera breve para que el usuario vea el color en la opción + snackbar
+    await Future.delayed(_autoAdvanceDelay);
+
+    if (!mounted) return;
+
+    if (qc.isLast) {
+      await _showSummary(context, qc);
+    } else {
+      await qc.next();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final qc = context.watch<QuestionController>();
@@ -61,7 +85,7 @@ class _SimulationViewState extends State<_SimulationView> {
               Text(qc.error),
               const SizedBox(height: 20),
               ElevatedButton(
-                onPressed: qc.init,
+                onPressed: qc.busy ? null : qc.init,
                 child: const Text('Reintentar'),
               ),
             ],
@@ -95,112 +119,75 @@ class _SimulationViewState extends State<_SimulationView> {
               child: Text('Puntaje lección: ${qc.scoreLessonPoints}'),
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Siguiente',
-            onPressed: () async {
-              if (qc.answerShown) {
-                if (qc.isLast) {
-                  await _showSummary(context, qc);
-                } else {
-                  await qc.next();
-                }
-              }
-            },
-          ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Card(
-              elevation: 4,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      current.txt,
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 16),
-                    Text("Nivel: ${current.lvl}"),
-                    Text("Categoría: ${current.cat}"),
-                  ],
+      body: AbsorbPointer(
+        absorbing: qc.busy, // bloquea taps durante transición
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Card(
+                elevation: 4,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        current.txt,
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 16),
+                      Text("Nivel: ${current.lvl}"),
+                      Text("Categoría: ${current.cat}"),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              "Opciones:",
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 10),
+              const SizedBox(height: 20),
+              const Text("Opciones:", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 10),
 
-            ...qc.options.asMap().entries.map((entry) {
-              final index = entry.key;
-              final opcion = entry.value;
-              final isSelected = qc.selectedIndex == index;
-              final isCorrect = opcion.correct == true;
-              final color =
-              qc.answerShown && isCorrect ? Colors.green[100] :
-              (isSelected ? (qc.answerShown ? Colors.red[100] : Colors.blue[100]) : null);
+              ...qc.options.asMap().entries.map((entry) {
+                final index = entry.key;
+                final opcion = entry.value;
+                final isSelected = qc.selectedIndex == index;
+                final isCorrect = opcion.correct == true;
 
-              return Card(
-                margin: const EdgeInsets.only(bottom: 10),
-                color: color,
-                child: ListTile(
-                  title: Text(opcion.txt),
-                  onTap: () => qc.selectOption(index),
+                final color =
+                qc.answerShown && isCorrect ? Colors.green[100] :
+                (isSelected ? (qc.answerShown ? Colors.red[100] : Colors.blue[100]) : null);
+
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  color: color,
+                  child: ListTile(
+                    title: Text(opcion.txt),
+                    onTap: () => qc.selectOption(index),
+                  ),
+                );
+              }),
+
+              const SizedBox(height: 20),
+
+              if (qc.selectedIndex != null && !qc.answerShown)
+                Center(
+                  child: ElevatedButton(
+                    onPressed: qc.busy ? null : () => _handleVerifyAndAutoAdvance(qc),
+                    child: const Text('Verificar respuesta'),
+                  ),
                 ),
-              );
-            }),
-
-            const SizedBox(height: 20),
-
-            if (qc.selectedIndex != null && !qc.answerShown)
-              Center(
-                child: ElevatedButton(
-                  onPressed: () {
-                    final correct = qc.verifySelected();
-                    if (correct == true) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('¡Correcto! +5 puntos')),
-                      );
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Respuesta incorrecta')),
-                      );
-                    }
-                  },
-                  child: const Text('Verificar respuesta'),
-                ),
-              ),
-
-            if (qc.answerShown)
-              Center(
-                child: ElevatedButton(
-                  onPressed: () async {
-                    if (qc.isLast) {
-                      await _showSummary(context, qc);
-                    } else {
-                      await qc.next();
-                    }
-                  },
-                  child: Text(qc.isLast ? 'Ver resultados' : 'Siguiente'),
-                ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
   Future<void> _showSummary(BuildContext context, QuestionController qc) async {
-    final totalNew = await qc.finishAndSync(); // PUT points
+    final totalNew = await qc.finishAndSync();
 
     if (!mounted) return;
     showDialog(
@@ -237,7 +224,7 @@ class _SimulationViewState extends State<_SimulationView> {
           TextButton(
             onPressed: () async {
               Navigator.of(context).pop();
-              await qc.restart(); // recarga nuevas preguntas
+              await qc.restart();
             },
             child: const Text('Reintentar'),
           ),

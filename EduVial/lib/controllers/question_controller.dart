@@ -1,3 +1,9 @@
+/// Controlador genérico de cuestionarios.
+/// - Carga preguntas filtradas por nivel + categoría (cat)
+/// - Carga opciones de la pregunta actual
+/// - Maneja selección, verificación y avance
+/// - Lleva puntaje de la lección y sincroniza puntos del usuario al final
+
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -6,15 +12,10 @@ import 'package:eduvial/models/pregunta.dart';
 import 'package:eduvial/controllers/auth_controller.dart' as auth;
 import 'package:eduvial/config/constants.dart';
 
-/// Controlador genérico de cuestionarios.
-/// - Carga preguntas filtradas por nivel + categoría (cat)
-/// - Carga opciones de la pregunta actual
-/// - Maneja selección, verificación y avance
-/// - Lleva puntaje de la lección y sincroniza puntos del usuario al final
 class QuestionController extends ChangeNotifier {
   QuestionController({
-    required this.category,     // p.ej. 'Señales', 'Simulaciones', 'Escenarios'
-    required this.level,        // p.ej. 'Básico' | 'Avanzado'
+    required this.category,
+    required this.level,
     this.maxQuestions = 5,
   });
 
@@ -22,7 +23,6 @@ class QuestionController extends ChangeNotifier {
   final String level;
   final int maxQuestions;
 
-  // Estado
   bool loading = true;
   String error = '';
 
@@ -33,10 +33,13 @@ class QuestionController extends ChangeNotifier {
   bool _answerShown = false;
 
   int _index = 0;
-  int _scoreLesson = 0;     // correctas * 1 (tu UI lo multiplica x5)
-  int? _userPoints;         // puntos del backend (total acumulado)
+  int _scoreLesson = 0;
+  int? _userPoints;
 
-  // Getters expuestos a la UI
+  // 🔐 Nuevo: bloqueo de UI durante cargas/transiciones
+  bool _busy = false;
+  bool get busy => _busy;
+
   List<Pregunta> get questions => _questions;
   Pregunta? get current => _current;
   List<OpcionRespuesta> get options => _options;
@@ -49,8 +52,6 @@ class QuestionController extends ChangeNotifier {
   int? get userPoints => _userPoints;
 
   bool get isLast => _index + 1 >= _questions.length;
-
-  // --------- Carga inicial ---------
 
   Future<void> init() async {
     loading = true;
@@ -92,7 +93,6 @@ class QuestionController extends ChangeNotifier {
         .map((j) => Pregunta.fromJson(j))
         .toList();
 
-    // Filtrar por nivel + categoría
     final filtradas = todas.where((p) => p.lvl == level && p.cat == category).toList();
 
     if (filtradas.isEmpty) {
@@ -109,32 +109,35 @@ class QuestionController extends ChangeNotifier {
   }
 
   Future<void> _loadOptions(int questionId) async {
-    final resp = await http
-        .get(Uri.parse('${ApiConstants.questEndpoint}/$questionId/options'))
-        .timeout(const Duration(seconds: 15));
+    _busy = true; notifyListeners();
+    try {
+      final resp = await http
+          .get(Uri.parse('${ApiConstants.questEndpoint}/$questionId/options'))
+          .timeout(const Duration(seconds: 15));
 
-    if (resp.statusCode != 200) {
-      throw Exception('No se pudieron cargar opciones');
+      if (resp.statusCode != 200) {
+        throw Exception('No se pudieron cargar opciones');
+      }
+
+      final List<dynamic> data = json.decode(resp.body);
+      _options = data.map((j) => OpcionRespuesta.fromJson(j)).toList();
+      _selectedIndex = null;
+      _answerShown = false;
+    } finally {
+      _busy = false; notifyListeners();
     }
-
-    final List<dynamic> data = json.decode(resp.body);
-    _options = data.map((j) => OpcionRespuesta.fromJson(j)).toList();
-    _selectedIndex = null;
-    _answerShown = false;
   }
 
-  // --------- Interacción ---------
-
   void selectOption(int i) {
-    if (!_answerShown) {
+    if (!_answerShown && !_busy) {
       _selectedIndex = i;
       notifyListeners();
     }
   }
 
-  /// Retorna si fue correcta (true/false) o null si no había selección.
+  /// Retorna true/false si había selección; null si no había.
   bool? verifySelected() {
-    if (_selectedIndex == null) return null;
+    if (_selectedIndex == null || _busy) return null;
 
     _answerShown = true;
     final correct = _options[_selectedIndex!].correct ?? false;
@@ -144,22 +147,21 @@ class QuestionController extends ChangeNotifier {
   }
 
   Future<void> next() async {
-    if (isLast) return;
-    _index++;
-    _current = _questions[_index];
-    await _loadOptions(_current!.id);
-    notifyListeners();
+    if (isLast || _busy) return;
+    _busy = true; notifyListeners();
+    try {
+      _index++;
+      _current = _questions[_index];
+      await _loadOptions(_current!.id);
+    } finally {
+      _busy = false; notifyListeners();
+    }
   }
 
-  // --------- Finalizar / sincronizar puntos ---------
-
-  /// Sincroniza los puntos con el backend sumando (scoreLesson * 5) a los actuales.
-  /// Devuelve el nuevo total o null si falló.
   Future<int?> finishAndSync() async {
     final base = _userPoints ?? 0;
     final total = base + scoreLessonPoints;
 
-    // Si tu backend hace PUT /points/me con {points: total}
     final ok = await auth.auth_controller.setUserPoints(total);
     if (ok) {
       _userPoints = total;
@@ -169,8 +171,8 @@ class QuestionController extends ChangeNotifier {
     return null;
   }
 
-  /// Reinicia el cuestionario (vuelve a cargar aleatoriamente)
   Future<void> restart() async {
     await init();
   }
 }
+
