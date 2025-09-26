@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:eduvial/views/register.dart';
 import 'package:eduvial/controllers/auth_controller.dart';
 import 'package:eduvial/views/menu.dart';
+import 'package:eduvial/utils/page_transitions.dart';
+import 'package:eduvial/views/main_shell.dart';
 import 'package:eduvial/models/user.dart'; // User + helpers locales
 
 class LoginScreen extends StatefulWidget {
@@ -43,11 +45,13 @@ class _LoginScreenState extends State<LoginScreen> {
 
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('¡Inicio de sesión exitoso!')),
-      );
+      //ScaffoldMessenger.of(context).showSnackBar(
+        //const SnackBar(content: Text('¡Inicio de sesión exitoso!')),
+      //);
 
-      Navigator.pushReplacementNamed(context, '/main');
+      Navigator.of(context).pushReplacement(
+        fadeRoute(const MainShell()),
+      );
 
     } else {
       ScaffoldMessenger.of(context).showSnackBar(

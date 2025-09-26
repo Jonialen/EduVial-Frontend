@@ -1,4 +1,3 @@
-// main_shell.dart
 import 'package:flutter/material.dart';
 import 'package:eduvial/views/menu.dart';
 import 'package:eduvial/views/ranking_screen.dart';
@@ -6,18 +5,28 @@ import 'package:eduvial/views/laws_screen.dart';
 
 import 'package:eduvial/models/user.dart';
 import 'package:eduvial/controllers/auth_controller.dart';
-import 'package:eduvial/widgets/welcome_overlay.dart'; // 👈 overlay modular
+import 'package:eduvial/widgets/welcome_overlay.dart'; // 👈 overlay de bienvenida
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
+
   @override
   State<MainShell> createState() => _MainShellState();
 }
 
 class _MainShellState extends State<MainShell> {
   int _index = 0;
+
   String? _token;
   User? _me;
+
+  // 👉 Recordar estado básico/scroll entre tabs
+  final PageStorageBucket _bucket = PageStorageBucket();
+
+  // 👉 Mantener instancias para NO perder estado al cambiar de tab
+  late final List<Widget> _tabs;
+
+  // Bienvenida
   bool _welcomeShown = false;
 
   @override
@@ -32,13 +41,28 @@ class _MainShellState extends State<MainShell> {
     me ??= await auth_controller.refreshMeAndCache();
 
     if (!mounted) return;
-    setState(() { _token = token; _me = me; });
 
-    // Mostrar bienvenida UNA sola vez
+    // Pre-instanciar páginas con PageStorageKey para conservar estado de scroll, etc.
+    _tabs = [
+      const Menu(key: PageStorageKey('tab_menu')),
+      RankingScreen(
+        key: const PageStorageKey('tab_ranking'),
+        token: token ?? '',
+        me: me ?? User(name: '', email: '', password: '', role: '', points: 0),
+      ),
+      const LawsScreen(key: PageStorageKey('tab_laws')),
+    ];
+
+    setState(() {
+      _token = token;
+      _me = me;
+    });
+
+    // Mostrar overlay de bienvenida UNA sola vez después del primer frame
     if (!_welcomeShown) {
       _welcomeShown = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        showWelcomeDialog(context); // 👈 listo
+        if (mounted) showWelcomeDialog(context);
       });
     }
   }
@@ -49,14 +73,23 @@ class _MainShellState extends State<MainShell> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final pages = [
-      const Menu(),
-      RankingScreen(token: _token!, me: _me!),
-      const LawsScreen(),
-    ];
-
     return Scaffold(
-      body: IndexedStack(index: _index, children: pages),
+      // 🔹 Fade suave entre tabs + preserva estado porque reusamos instancias en _tabs
+      body: PageStorage(
+        bucket: _bucket,
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeOutCubic,
+          transitionBuilder: (child, anim) => FadeTransition(opacity: anim, child: child),
+          // 👇 Asegura que AnimatedSwitcher detecte cambio de "pantalla" (clave por índice)
+          child: KeyedSubtree(
+            key: ValueKey(_index),
+            child: _tabs[_index],
+          ),
+        ),
+      ),
+
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _index,
         onTap: (i) => setState(() => _index = i),
