@@ -1,16 +1,18 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:eduvial/models/pregunta.dart';
 import 'package:eduvial/controllers/auth_controller.dart' as auth;
 import 'package:eduvial/config/constants.dart';
+import 'package:eduvial/services/guest_helper.dart'; //
 
 /// Controlador genérico de cuestionarios.
 /// - Carga preguntas filtradas por nivel + categoría (cat)
 /// - Carga opciones de la pregunta actual
 /// - Maneja selección, verificación y avance
-/// - Lleva puntaje de la lección y sincroniza puntos del usuario al final
+/// - Lleva puntaje de la lección y (si hay JWT) sincroniza puntos del usuario al final
 class QuestionController extends ChangeNotifier {
   QuestionController({
     required this.category,     // p.ej. 'Señales', 'Simulaciones', 'Escenarios'
@@ -35,6 +37,7 @@ class QuestionController extends ChangeNotifier {
   int _index = 0;
   int _scoreLesson = 0;     // correctas * 1 (tu UI lo multiplica x5)
   int? _userPoints;         // puntos del backend (total acumulado)
+  bool _guest = true;       // cachea si no hay JWT
 
   // Getters expuestos a la UI
   List<Pregunta> get questions => _questions;
@@ -47,8 +50,8 @@ class QuestionController extends ChangeNotifier {
   int get scoreLesson => _scoreLesson;
   int get scoreLessonPoints => _scoreLesson * 5;
   int? get userPoints => _userPoints;
-
   bool get isLast => _index + 1 >= _questions.length;
+  bool get isGuestMode => _guest;
 
   // --------- Carga inicial ---------
 
@@ -58,7 +61,7 @@ class QuestionController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _loadUserPoints();
+      await _resolveGuestAndPoints();
       await _loadQuestions();
       if (_current != null) {
         await _loadOptions(_current!.id);
@@ -72,9 +75,24 @@ class QuestionController extends ChangeNotifier {
     }
   }
 
-  Future<void> _loadUserPoints() async {
+  /// Resuelve si es invitado (no hay JWT) y trata de leer puntos si aplica.
+  Future<void> _resolveGuestAndPoints() async {
+    final token = await auth.auth_controller.loadToken();
+    _guest = (token == null || token.isEmpty);
+
+    if (_guest) {
+      _userPoints = 0;
+      return;
+    }
+
+    // Si hay token, intentamos leer puntos; si falla por 401 => treat as guest
     final s = await auth.auth_controller.getUserPoints();
-    _userPoints = s ?? 0;
+    if (s == null) {
+      _guest = true;
+      _userPoints = 0;
+    } else {
+      _userPoints = s;
+    }
   }
 
   Future<void> _loadQuestions() async {
@@ -153,13 +171,39 @@ class QuestionController extends ChangeNotifier {
 
   // --------- Finalizar / sincronizar puntos ---------
 
+  /// Versión "guardada": muestra alerta si es invitado y solo sincroniza si hay JWT.
+  /// Devuelve el nuevo total o null si se bloqueó o falló.
+  Future<int?> finishAndSyncGuarded(
+      BuildContext context, {
+        VoidCallback? onGoLogin,
+      }) async {
+    final ok = await requireAuthOrAlert(
+      context,
+      featureName: 'Sumar puntos por lección',
+      onGoLogin: onGoLogin,
+    );
+    if (!ok) return null; // Invitado: ya se mostró alerta
+
+    final result = await finishAndSync(); // procede normal
+    if (result == null && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudieron sincronizar los puntos')),
+      );
+    }
+    return result;
+  }
+
   /// Sincroniza los puntos con el backend sumando (scoreLesson * 5) a los actuales.
   /// Devuelve el nuevo total o null si falló.
+  /// Asume que HAY JWT (usa la versión Guarded para flujo de UI).
   Future<int?> finishAndSync() async {
+    // Refresca estado de invitado por si cambió durante la lección
+    await _resolveGuestAndPoints();
+    if (_guest) return null;
+
     final base = _userPoints ?? 0;
     final total = base + scoreLessonPoints;
 
-    // Si tu backend hace PUT /points/me con {points: total}
     final ok = await auth.auth_controller.setUserPoints(total);
     if (ok) {
       _userPoints = total;

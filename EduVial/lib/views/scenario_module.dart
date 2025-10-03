@@ -191,7 +191,10 @@ class _ScenarioModuleViewState extends State<_ScenarioModuleView> {
   }
 
   Future<void> _showSummary(BuildContext context, QuestionController qc) async {
-    final totalNew = await qc.finishAndSync();
+    final totalNew = await qc.finishAndSyncGuarded(
+      context,
+      onGoLogin: () => Navigator.of(context).pushNamed('/login'),
+    );
 
     if (!mounted) return;
     showDialog(

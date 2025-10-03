@@ -195,7 +195,10 @@ class _SignalModuleViewState extends State<_SignalModuleView> {
   }
 
   Future<void> _showSummary(BuildContext context, QuestionController qc) async {
-    final totalNew = await qc.finishAndSync(); // PUT points
+    final totalNew = await qc.finishAndSyncGuarded(
+      context,
+      onGoLogin: () => Navigator.of(context).pushNamed('/login'),
+    );
 
     if (!mounted) return;
     showDialog(
