@@ -5,12 +5,13 @@
 /// - Lleva puntaje de la lección y sincroniza puntos del usuario al final
 
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart'; // <- para BuildContext
 import 'package:http/http.dart' as http;
 
 import 'package:eduvial/models/pregunta.dart';
 import 'package:eduvial/controllers/auth_controller.dart' as auth;
 import 'package:eduvial/config/constants.dart';
+import 'package:eduvial/services/guest_helper.dart'; // <- requireAuthOrAlert
 
 class QuestionController extends ChangeNotifier {
   QuestionController({
@@ -36,19 +37,27 @@ class QuestionController extends ChangeNotifier {
   int _scoreLesson = 0;
   int? _userPoints;
 
-  // 🔐 Nuevo: bloqueo de UI durante cargas/transiciones
+  // 🔐 Bloqueo de UI durante cargas/transiciones
   bool _busy = false;
+
   bool get busy => _busy;
 
   List<Pregunta> get questions => _questions;
+
   Pregunta? get current => _current;
+
   List<OpcionRespuesta> get options => _options;
+
   int? get selectedIndex => _selectedIndex;
+
   bool get answerShown => _answerShown;
 
   int get index => _index;
+
   int get scoreLesson => _scoreLesson;
+
   int get scoreLessonPoints => _scoreLesson * 5;
+
   int? get userPoints => _userPoints;
 
   bool get isLast => _index + 1 >= _questions.length;
@@ -93,7 +102,8 @@ class QuestionController extends ChangeNotifier {
         .map((j) => Pregunta.fromJson(j))
         .toList();
 
-    final filtradas = todas.where((p) => p.lvl == level && p.cat == category).toList();
+    final filtradas = todas.where((p) => p.lvl == level && p.cat == category)
+        .toList();
 
     if (filtradas.isEmpty) {
       throw Exception('No hay preguntas para el nivel $level en $category');
@@ -109,7 +119,8 @@ class QuestionController extends ChangeNotifier {
   }
 
   Future<void> _loadOptions(int questionId) async {
-    _busy = true; notifyListeners();
+    _busy = true;
+    notifyListeners();
     try {
       final resp = await http
           .get(Uri.parse('${ApiConstants.questEndpoint}/$questionId/options'))
@@ -124,7 +135,8 @@ class QuestionController extends ChangeNotifier {
       _selectedIndex = null;
       _answerShown = false;
     } finally {
-      _busy = false; notifyListeners();
+      _busy = false;
+      notifyListeners();
     }
   }
 
@@ -148,16 +160,20 @@ class QuestionController extends ChangeNotifier {
 
   Future<void> next() async {
     if (isLast || _busy) return;
-    _busy = true; notifyListeners();
+    _busy = true;
+    notifyListeners();
     try {
       _index++;
       _current = _questions[_index];
       await _loadOptions(_current!.id);
     } finally {
-      _busy = false; notifyListeners();
+      _busy = false;
+      notifyListeners();
     }
   }
 
+  /// Sincroniza los puntos con el backend sumando (scoreLesson * 5) a los actuales.
+  /// Devuelve el nuevo total o null si falló.
   Future<int?> finishAndSync() async {
     final base = _userPoints ?? 0;
     final total = base + scoreLessonPoints;
@@ -169,6 +185,26 @@ class QuestionController extends ChangeNotifier {
       return total;
     }
     return null;
+  }
+
+  /// ✅ Envoltura segura:
+  /// - Muestra pop-up si es invitado (no hay JWT) y NO intenta conectar al servidor.
+  /// - Si hay JWT, llama a finishAndSync().
+
+  Future<int?> finishAndSyncGuarded(BuildContext context, {
+    VoidCallback? onGoLogin,
+  }) async {
+    final res = await requireAuthOrAlert(
+      context,
+      featureName: 'Sumar puntos por lección',
+      onGoLogin: onGoLogin,
+    );
+
+    // Invitado (cancel) o eligió "Iniciar sesión" -> no sincronizamos ni mostramos error
+    if (res != AuthPromptResult.proceed) return null;
+
+    // Logueado: procede a sincronizar
+    return await finishAndSync();
   }
 
   Future<void> restart() async {

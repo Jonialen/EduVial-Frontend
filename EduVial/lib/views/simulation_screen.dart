@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:eduvial/controllers/question_controller.dart';
 import 'package:eduvial/controllers/global_identifier.dart';
+import 'package:eduvial/widgets/lesson_summary.dart'; // helper reutilizable
 
 class SimulationScreen extends StatelessWidget {
   final String rol;
@@ -58,7 +59,18 @@ class _SimulationViewState extends State<_SimulationView> {
     if (!mounted) return;
 
     if (qc.isLast) {
-      await _showSummary(context, qc);
+      // ✅ Usamos el helper general para mostrar el resumen y manejar puntos/login
+      await showLessonSummaryDialog(
+        context,
+        qc,
+        title: 'Simulaciones completado',
+        onExit: () async {
+          // el helper ya cierra el diálogo; aquí solo volvemos al menú
+          if (mounted && Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          }
+        },
+      );
     } else {
       await qc.next();
     }
@@ -182,60 +194,6 @@ class _SimulationViewState extends State<_SimulationView> {
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Future<void> _showSummary(BuildContext context, QuestionController qc) async {
-    final totalNew = await qc.finishAndSync();
-
-    if (!mounted) return;
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        title: const Text('Módulo completado'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Respondiste ${qc.scoreLesson} de ${qc.questions.length} correctamente.'),
-            const SizedBox(height: 12),
-            Text('Puntos añadidos: ${qc.scoreLessonPoints}'),
-            if (totalNew != null) Text('Total actual: $totalNew'),
-            const SizedBox(height: 12),
-            Text(
-              qc.scoreLesson >= (qc.questions.length / 2) ? 'Buen trabajo' : 'Puedes mejorar',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: qc.scoreLesson >= (qc.questions.length / 2) ? Colors.green : Colors.red,
-              ),
-            ),
-            if (totalNew == null)
-              const Padding(
-                padding: EdgeInsets.only(top: 8.0),
-                child: Text(
-                  'No se pudo sincronizar el puntaje con el servidor.',
-                  style: TextStyle(color: Colors.red),
-                ),
-              ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              Navigator.of(context).pop();
-              await qc.restart();
-            },
-            child: const Text('Reintentar'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).pop();
-            },
-            child: const Text('Volver al menú'),
-          ),
-        ],
       ),
     );
   }

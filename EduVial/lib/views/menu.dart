@@ -10,6 +10,7 @@ import 'package:eduvial/controllers/auth_controller.dart'; // <-- puntos
 import '../widgets/mascot/traffic_mascot.dart';
 import '../widgets/coin_button.dart'; //  CoinButton
 import 'package:eduvial/utils/page_transitions.dart';
+import 'package:eduvial/services/guest_helper.dart'; // requireAuthOrAlert
 
 class Menu extends StatefulWidget {
   const Menu({super.key});
@@ -85,7 +86,6 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
       }
 
       // 2) Refrescar desde backend
-      //    Primero intentar /me/basic (si ahí vienen points)
       final me = await auth_controller.getMeBasic();
       if (me['success'] == true && me['user'] != null) {
         final u = me['user'] as Map<String, dynamic>;
@@ -94,7 +94,6 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
           setState(() => _points = u['points'] as int);
         }
       } else {
-        // fallback: usar GET directo de puntos
         final p = await auth_controller.getUserPoints();
         if (mounted && p != null) setState(() => _points = p);
       }
@@ -125,7 +124,6 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
     });
   }
 
-  // --- Nvalidar puntos antes de abrir Avanzados ---
   Future<void> _tryToggleAvanzadoSubmodulos() async {
     if (_points == null && !_loadingPoints) {
       await _loadPoints();
@@ -164,7 +162,6 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
       {
         'nombre': 'Simulaciones',
         'icono': Icons.videogame_asset,
-        // paleta "moneda" roja
         'rimDark': const Color(0xFFB23A2E),
         'rimLight': const Color(0xFFFF9E80),
         'faceDark': const Color(0xFFE53935),
@@ -179,7 +176,6 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
       {
         'nombre': 'Señales',
         'icono': Icons.traffic,
-        // paleta "moneda" naranja
         'rimDark': const Color(0xFFCC7A00),
         'rimLight': const Color(0xFFFFD180),
         'faceDark': const Color(0xFFFF9800),
@@ -194,7 +190,6 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
       {
         'nombre': 'Escenarios',
         'icono': Icons.landscape,
-        // paleta "moneda" verde
         'rimDark': const Color(0xFF2E7D32),
         'rimLight': const Color(0xFFA5D6A7),
         'faceDark': const Color(0xFF2DBD3A),
@@ -273,7 +268,7 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
                           ),
                         ),
 
-                        // --- NUEVO: chip de puntos + refresh + perfil ---
+                        // --- chip de puntos + refresh + perfil ---
                         Row(
                           children: [
                             Container(
@@ -319,11 +314,14 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: IconButton(
-                                icon: const Icon(
-                                  Icons.person,
-                                  color: Colors.white,
-                                ),
-                                onPressed: () {
+                                icon: const Icon(Icons.person, color: Colors.white),
+                                onPressed: () async {
+                                  final res = await requireAuthOrAlert(
+                                    context,
+                                    featureName: 'Perfil',
+                                    onGoLogin: () => Navigator.of(context).pushNamed('/login'),
+                                  );
+                                  if (res != AuthPromptResult.proceed) return;
                                   Navigator.of(context).push(
                                     fadeRoute(const ProfileScreen()),
                                   );
@@ -369,7 +367,6 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
                             CoinButton(
                               icon: Icons.star,
                               size: 86,
-                              // paleta moneda azul
                               rimDark: const Color(0xFF0D47A1),
                               rimLight: const Color(0xFF90CAF9),
                               faceDark: const Color(0xFF1976D2),
@@ -402,7 +399,6 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
                             CoinButton(
                               icon: Icons.menu_book,
                               size: 86,
-                              // paleta "moneda" dorada
                               rimDark: const Color(0xFFB57A00),
                               rimLight: const Color(0xFFFFE082),
                               faceDark: const Color(0xFFF4C23A),
