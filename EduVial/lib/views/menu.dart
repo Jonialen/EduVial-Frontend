@@ -9,6 +9,7 @@ import 'package:eduvial/views/scenario_module.dart';
 import 'package:eduvial/controllers/auth_controller.dart'; // <-- puntos
 import '../widgets/mascot/traffic_mascot.dart';
 import '../widgets/coin_button.dart'; //  CoinButton
+import 'package:eduvial/utils/page_transitions.dart';
 
 class Menu extends StatefulWidget {
   const Menu({super.key});
@@ -170,11 +171,8 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
         'faceLight': const Color(0xFFFF8A80),
         'depth': 6.0,
         'onTap': () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => SimulationScreen(rol: nivel.toLowerCase()),
-            ),
+          Navigator.of(context).push(
+            slideUpRoute(SimulationScreen(rol: nivel.toLowerCase())),
           );
         },
       },
@@ -188,11 +186,8 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
         'faceLight': const Color(0xFFFFE0B2),
         'depth': 6.0,
         'onTap': () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => SignalModule(nivel: nivel.toLowerCase()),
-            ),
+          Navigator.of(context).push(
+            slideUpRoute(SignalModule(nivel: nivel.toLowerCase())),
           );
         },
       },
@@ -206,11 +201,8 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
         'faceLight': const Color(0xFF6CD93B),
         'depth': 6.0,
         'onTap': () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ScenarioModule(rol: nivel.toLowerCase()),
-            ),
+          Navigator.of(context).push(
+            slideUpRoute(ScenarioModule(rol: nivel.toLowerCase())),
           );
         },
       },
@@ -332,11 +324,8 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
                                   color: Colors.white,
                                 ),
                                 onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => const ProfileScreen(),
-                                    ),
+                                  Navigator.of(context).push(
+                                    fadeRoute(const ProfileScreen()),
                                   );
                                 },
                               ),

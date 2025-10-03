@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:eduvial/models/user.dart';
 import 'package:eduvial/controllers/auth_controller.dart';
+import 'package:eduvial/utils/page_transitions.dart';
 import 'package:eduvial/views/login.dart'; // 👈 necesario para volver a Login
 
 class ProfileScreen extends StatefulWidget {
@@ -87,10 +88,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
 
     // Llevar a Login y limpiar historial
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-          (route) => false,
+    Navigator.of(context).pushAndRemoveUntil(
+      fadeRoute(const LoginScreen()),
+          (_) => false,
     );
   }
 
