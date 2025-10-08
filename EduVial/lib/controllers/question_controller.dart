@@ -131,7 +131,15 @@ class QuestionController extends ChangeNotifier {
       }
 
       final List<dynamic> data = json.decode(resp.body);
+
       _options = data.map((j) => OpcionRespuesta.fromJson(j)).toList();
+
+      // 🔀 Barajar una sola vez por pregunta (orden estable durante la vista)
+      if (_options.length > 1) {
+        _options.shuffle();
+      }
+
+      // reset selección/estado para la nueva pregunta
       _selectedIndex = null;
       _answerShown = false;
     } finally {
