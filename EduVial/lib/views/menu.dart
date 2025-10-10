@@ -7,10 +7,13 @@ import 'package:eduvial/views/UserProfile.dart';
 import 'package:eduvial/controllers/global_identifier.dart';
 import 'package:eduvial/views/scenario_module.dart';
 import 'package:eduvial/controllers/auth_controller.dart'; // <-- puntos
-import '../widgets/mascot/traffic_mascot.dart';
+
 import '../widgets/coin_button.dart'; //  CoinButton
 import 'package:eduvial/utils/page_transitions.dart';
 import 'package:eduvial/services/guest_helper.dart'; // requireAuthOrAlert
+import 'package:eduvial/widgets/mascot/traffic_cone_mascot.dart' hide MascotState;
+import 'package:eduvial/widgets/mascot/traffic_mascot.dart';
+
 
 class Menu extends StatefulWidget {
   const Menu({super.key});

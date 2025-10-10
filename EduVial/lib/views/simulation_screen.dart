@@ -4,6 +4,7 @@ import 'package:eduvial/controllers/question_controller.dart';
 import 'package:eduvial/controllers/global_identifier.dart';
 import 'package:eduvial/widgets/lesson_summary.dart'; // helper reutilizable
 import 'package:eduvial/widgets/mascot/traffic_mascot.dart';
+import 'package:eduvial/widgets/mascot/traffic_cone_mascot.dart' hide MascotState;
 
 class SimulationScreen extends StatelessWidget {
   final String rol;
@@ -159,56 +160,80 @@ class _SimulationViewState extends State<_SimulationView> {
                         ),
                         child: Padding(
                           padding: const EdgeInsets.all(16),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // 🟡 Mascota a la izquierda
-                              SizedBox(
-                                width: mascotSize,
-                                height: mascotSize,
-                                child: const TrafficMascot(),
-                              ),
-                              const SizedBox(width: 16),
+                          child: Builder(
+                            builder: (context) {
+                              // 🟡 Alternar por índice: par=señal, impar=cono
+                              final bool showCone = (qc.index % 2 == 1);
 
-                              // ❓ Pregunta y chips a la derecha
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      current.txt,
-                                      softWrap: true,
-                                      style: const TextStyle(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.w700,
+                              return Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // 🟡 Mascota a la izquierda
+                                  SizedBox(
+                                    width: mascotSize,
+                                    height: mascotSize,
+                                    child: AnimatedSwitcher(
+                                      duration: const Duration(milliseconds: 220),
+                                      switchInCurve: Curves.easeOut,
+                                      switchOutCurve: Curves.easeIn,
+                                      child: showCone
+                                          ? const TrafficConeMascot(
+                                        key: ValueKey('cone'),
+                                        size: 300,
+                                        autoAnimate: true,
+                                      )
+                                          : const TrafficMascot(
+                                        key: ValueKey('stop'),
+                                        state: MascotState.idle,
+                                        size:300,
+                                        autoAnimate: true,
                                       ),
                                     ),
-                                    const SizedBox(height: 10),
-                                    Wrap(
-                                      spacing: 8,
-                                      runSpacing: 8,
+                                  ),
+                                  const SizedBox(width: 16),
+
+                                  // ❓ Pregunta y chips a la derecha
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Chip(
-                                          label: Text('Nivel: ${current.lvl}'),
-                                          backgroundColor: const Color(0xFFEFF6FF),
-                                          side: const BorderSide(color: Color(0xFFBFDBFE)),
+                                        Text(
+                                          current.txt,
+                                          softWrap: true,
+                                          style: const TextStyle(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.w700,
+                                          ),
                                         ),
-                                        Chip(
-                                          label: Text('Categoría: ${current.cat}'),
-                                          backgroundColor: const Color(0xFFF1F5F9),
-                                          side: const BorderSide(color: Color(0xFFE2E8F0)),
+                                        const SizedBox(height: 10),
+                                        Wrap(
+                                          spacing: 8,
+                                          runSpacing: 8,
+                                          children: [
+                                            Chip(
+                                              label: Text('Nivel: ${current.lvl}'),
+                                              backgroundColor: const Color(0xFFEFF6FF),
+                                              side: const BorderSide(color: Color(0xFFBFDBFE)),
+                                            ),
+                                            Chip(
+                                              label: Text('Categoría: ${current.cat}'),
+                                              backgroundColor: const Color(0xFFF1F5F9),
+                                              side: const BorderSide(color: Color(0xFFE2E8F0)),
+                                            ),
+                                          ],
                                         ),
                                       ],
                                     ),
-                                  ],
-                                ),
-                              ),
-                            ],
+                                  ),
+                                ],
+                              );
+                            },
                           ),
                         ),
                       ),
                     ),
                   ),
+
 
                   const SizedBox(height: 16),
 
