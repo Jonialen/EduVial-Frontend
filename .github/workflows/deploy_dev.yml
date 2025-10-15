@@ -1,1 +1,66 @@
 # deploy_dev.yml (deploy_dev.yml)
+
+name: Deploy Flutter Web to DEV Oracle Cloud
+on:
+  push:
+    branches:
+      - main_dev
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.35.5" # Tu versión exacta
+
+      - name: Build Flutter Web
+        run: |
+          flutter clean
+          flutter pub get
+          flutter build web --release
+
+      - name: Archive build files
+        run: |
+          cd build/web
+          tar -czf ../../frontend_build.tar.gz .
+          cd ../..
+          ls -lh frontend_build.tar.gz
+
+      - name: Upload build via SCP
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "frontend_build.tar.gz"
+          target: "/home/ubuntu/proyectoSoftwere/dev"
+
+      - name: SSH deploy & extract
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /home/ubuntu/proyectoSoftwere/dev
+
+            # Crear carpeta si no existe
+            mkdir -p frontend
+
+            # Respaldar versión anterior
+            if [ -d "frontend" ]; then
+              mv frontend frontend_backup_$(date +%Y%m%d_%H%M%S)
+              echo "Backup de versión anterior creado"
+            fi
+
+            # Extraer nueva versión
+            mkdir -p frontend
+            tar -xzf frontend_build.tar.gz -C frontend
+            rm frontend_build.tar.gz
+
+            echo "Despliegue completado correctamente en /home/ubuntu/proyectoSoftwere/dev/frontend"
