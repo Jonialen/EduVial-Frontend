@@ -1,0 +1,14 @@
+/mnt/datos/jonialen/Documents/UVG/proyecto-softwere/EduVial-Frontend/EduVial/build/linux/x64/debug/bundle/eduvial
+/mnt/datos/jonialen/Documents/UVG/proyecto-softwere/EduVial-Frontend/EduVial/build/linux/x64/debug/bundle/data/icudtl.dat
+/mnt/datos/jonialen/Documents/UVG/proyecto-softwere/EduVial-Frontend/EduVial/build/linux/x64/debug/bundle/lib/libflutter_linux_gtk.so
+/mnt/datos/jonialen/Documents/UVG/proyecto-softwere/EduVial-Frontend/EduVial/build/linux/x64/debug/bundle/data/flutter_assets/FontManifest.json
+/mnt/datos/jonialen/Documents/UVG/proyecto-softwere/EduVial-Frontend/EduVial/build/linux/x64/debug/bundle/data/flutter_assets/kernel_blob.bin
+/mnt/datos/jonialen/Documents/UVG/proyecto-softwere/EduVial-Frontend/EduVial/build/linux/x64/debug/bundle/data/flutter_assets/assets/images/Logo-refac.png
+/mnt/datos/jonialen/Documents/UVG/proyecto-softwere/EduVial-Frontend/EduVial/build/linux/x64/debug/bundle/data/flutter_assets/AssetManifest.bin
+/mnt/datos/jonialen/Documents/UVG/proyecto-softwere/EduVial-Frontend/EduVial/build/linux/x64/debug/bundle/data/flutter_assets/shaders/ink_sparkle.frag
+/mnt/datos/jonialen/Documents/UVG/proyecto-softwere/EduVial-Frontend/EduVial/build/linux/x64/debug/bundle/data/flutter_assets/version.json
+/mnt/datos/jonialen/Documents/UVG/proyecto-softwere/EduVial-Frontend/EduVial/build/linux/x64/debug/bundle/data/flutter_assets/NativeAssetsManifest.json
+/mnt/datos/jonialen/Documents/UVG/proyecto-softwere/EduVial-Frontend/EduVial/build/linux/x64/debug/bundle/data/flutter_assets/fonts/MaterialIcons-Regular.otf
+/mnt/datos/jonialen/Documents/UVG/proyecto-softwere/EduVial-Frontend/EduVial/build/linux/x64/debug/bundle/data/flutter_assets/AssetManifest.json
+/mnt/datos/jonialen/Documents/UVG/proyecto-softwere/EduVial-Frontend/EduVial/build/linux/x64/debug/bundle/data/flutter_assets/NOTICES.Z
+/mnt/datos/jonialen/Documents/UVG/proyecto-softwere/EduVial-Frontend/EduVial/build/linux/x64/debug/bundle/data/flutter_assets/packages/cupertino_icons/assets/CupertinoIcons.ttf
