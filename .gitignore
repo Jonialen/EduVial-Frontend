@@ -12,6 +12,7 @@ flutter_*.png
 
 # Generated plugin registrants (auto-generated)
 **/generated_plugin_registrant.dart
+**/.flutter-plugins-dependencies
 
 # ==============================
 # IDEs & Editors
