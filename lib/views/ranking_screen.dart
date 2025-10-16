@@ -1,12 +1,12 @@
-// lib/views/ranking_screen.dart
 import 'package:flutter/material.dart';
 import '../services/ranking_service.dart';
 import '../models/user.dart';
 import '../services/me_ranking.dart';
+import 'package:eduvial/widgets/ranking_welcome.dart'; // ⬅️ Importa el overlay
 
 class RankingScreen extends StatefulWidget {
   final String token;
-  final User me; // usuario logueado (para fallback de nombre)
+  final User me;
   const RankingScreen({super.key, required this.token, required this.me});
 
   @override
@@ -14,26 +14,33 @@ class RankingScreen extends StatefulWidget {
 }
 
 class _RankingScreenState extends State<RankingScreen> {
-  static const List<int?> filters = [null, 15, 10, 5, 1]; // null = Todos
+  static const List<int?> filters = [null, 15, 10, 5, 1];
   static const List<String> labels = ['Todos', 'Top 15', 'Top 10', 'Top 5', 'Top 1'];
 
   int? selectedLimit = null;
   late final RankingService service = RankingService(widget.token);
-
   late Future<_RankingData> futureData;
 
   @override
   void initState() {
     super.initState();
     futureData = _loadData();
+
+    // ⬇️ Mostrar overlay de bienvenida al entrar
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      showRankingWelcomeDialog(
+        context,
+        message:
+        'Bienvenido a la pantalla de ranking, aquí podrás ver las puntuaciones de más usuarios a nivel global',
+      );
+    });
   }
 
   Future<_RankingData> _loadData() async {
     final topF = service.fetchTop(limit: selectedLimit);
-    final meF  = service.fetchMyRanking();
+    final meF = service.fetchMyRanking();
     final top = await topF;
-    final me  = await meF;
-    // orden por si acaso (desc)
+    final me = await meF;
     top.sort((a, b) => (b.points ?? 0).compareTo(a.points ?? 0));
     return _RankingData(top: top, me: me);
   }
@@ -72,15 +79,11 @@ class _RankingScreenState extends State<RankingScreen> {
 
           final listLimit = selectedLimit ?? users.length;
 
-          // Datos de "me" desde el endpoint autoritativo
           final String myDisplayName = data.me?.name ?? widget.me.name;
-          final int myBackendPos     = data.me?.position ?? 0;
-          final int myBackendPoints  = data.me?.points ?? 0;
+          final int myBackendPos = data.me?.position ?? 0;
+          final int myBackendPoints = data.me?.points ?? 0;
 
-          // ¿debería estar en este top (según posición del backend)?
           final bool shouldBeInTop = (myBackendPos > 0) && (myBackendPos <= listLimit);
-
-          // ¿aparezco realmente en la lista actual? (comparando por nombre)
           final int myIndexInList = users.indexWhere((u) => _eqName(u.name, myDisplayName));
           final bool appearsInList = myIndexInList != -1;
 
@@ -95,7 +98,6 @@ class _RankingScreenState extends State<RankingScreen> {
             child: ListView(
               padding: const EdgeInsets.all(12),
               children: [
-                // Filtros
                 Wrap(
                   spacing: 8,
                   children: List.generate(filters.length, (i) {
@@ -108,8 +110,6 @@ class _RankingScreenState extends State<RankingScreen> {
                   }),
                 ),
                 const SizedBox(height: 12),
-
-                // Tarjeta "Tu posición" (usa datos de /me/ranking)
                 Card(
                   color: Colors.green.withOpacity(0.08),
                   child: ListTile(
@@ -121,8 +121,6 @@ class _RankingScreenState extends State<RankingScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-
-                // Lista de ranking (resalta por nombre)
                 Card(
                   child: ListView.separated(
                     shrinkWrap: true,
@@ -131,9 +129,8 @@ class _RankingScreenState extends State<RankingScreen> {
                     separatorBuilder: (_, __) => const Divider(height: 1),
                     itemBuilder: (context, i) {
                       final u = users[i];
-                      final position = i + 1; // top ya viene ordenado
+                      final position = i + 1;
                       final isMe = _eqName(u.name, myDisplayName);
-
                       return Container(
                         color: isMe ? Colors.lightGreen.withOpacity(0.15) : null,
                         child: ListTile(
@@ -155,14 +152,11 @@ class _RankingScreenState extends State<RankingScreen> {
     );
   }
 
-  //Como se ve el top visualmente
   Widget _rankBadge(int position) {
     if (position == 1) return const Text('🥇', style: TextStyle(fontSize: 20));
     if (position == 2) return const Text('🥈', style: TextStyle(fontSize: 20));
     if (position == 3) return const Text('🥉', style: TextStyle(fontSize: 20));
-    if (position <= 0) {
-      return const CircleAvatar(radius: 14, child: Text('—'));
-    }
+    if (position <= 0) return const CircleAvatar(radius: 14, child: Text('—'));
     return CircleAvatar(
       radius: 14,
       child: Text('$position', style: const TextStyle(fontWeight: FontWeight.w700)),
