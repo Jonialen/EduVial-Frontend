@@ -4,9 +4,10 @@ import 'package:eduvial/controllers/question_controller.dart';
 import 'package:eduvial/controllers/global_identifier.dart';
 import 'package:eduvial/widgets/lesson_summary.dart';
 
-// 👇 Agrega las mascotas (ocultamos el enum del cono para evitar choque)
+// Mascotas
 import 'package:eduvial/widgets/mascot/traffic_mascot.dart';
 import 'package:eduvial/widgets/mascot/traffic_cone_mascot.dart' hide MascotState;
+import 'package:eduvial/widgets/mascot/traffic_light_mascot.dart' hide MascotState;
 
 class SignalModule extends StatelessWidget {
   final String nivel;
@@ -136,7 +137,6 @@ class _SignalModuleViewState extends State<_SignalModuleView> {
         absorbing: qc.busy,
         child: LayoutBuilder(
           builder: (context, constraints) {
-            // 📏 tamaño responsivo de la mascota
             final w = MediaQuery.of(context).size.width;
             final double mascotSize =
             w >= 1200 ? 160 : (w >= 900 ? 140 : (w >= 600 ? 120 : 96));
@@ -146,7 +146,7 @@ class _SignalModuleViewState extends State<_SignalModuleView> {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  // ── Header: Mascota (izq, alternada) + Pregunta (der) ─────────
+                  // ── Tarjeta: Mascota + Pregunta ───────────────────────────────
                   Center(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 900),
@@ -157,74 +157,57 @@ class _SignalModuleViewState extends State<_SignalModuleView> {
                         ),
                         child: Padding(
                           padding: const EdgeInsets.all(16),
-                          child: Builder(
-                            builder: (context) {
-                              // par = señal, impar = cono (como en Simulation)
-                              final bool showCone = (qc.index % 2 == 1);
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // 🟡 Mascota (rotación 3) con proporción correcta
+                              SizedBox(
+                                width: mascotSize, // solo ancho
+                                child: AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 220),
+                                  switchInCurve: Curves.easeOut,
+                                  switchOutCurve: Curves.easeIn,
+                                  child: _buildMascotForIndex(
+                                    i: qc.index % 3,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
 
-                              return Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // 🟡 Mascota alternada
-                                  SizedBox(
-                                    width: mascotSize,
-                                    height: mascotSize,
-                                    child: AnimatedSwitcher(
-                                      duration: const Duration(milliseconds: 220),
-                                      switchInCurve: Curves.easeOut,
-                                      switchOutCurve: Curves.easeIn,
-                                      child: showCone
-                                          ? const TrafficConeMascot(
-                                        key: ValueKey('cone'),
-                                        size: 300,
-                                        autoAnimate: true,
-                                      )
-                                          : const TrafficMascot(
-                                        key: ValueKey('stop'),
-                                        state: MascotState.idle,
-                                        size: 300,
-                                        autoAnimate: true,
+                              // ❓ Pregunta + chips
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      current.txt,
+                                      softWrap: true,
+                                      style: const TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w700,
                                       ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 16),
-
-                                  // ❓ Pregunta + chips
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                    const SizedBox(height: 10),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 8,
                                       children: [
-                                        Text(
-                                          current.txt,
-                                          softWrap: true,
-                                          style: const TextStyle(
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.w700,
-                                          ),
+                                        Chip(
+                                          label: Text('Nivel: ${current.lvl}'),
+                                          backgroundColor: const Color(0xFFEFF6FF),
+                                          side: const BorderSide(color: Color(0xFFBFDBFE)),
                                         ),
-                                        const SizedBox(height: 10),
-                                        Wrap(
-                                          spacing: 8,
-                                          runSpacing: 8,
-                                          children: [
-                                            Chip(
-                                              label: Text('Nivel: ${current.lvl}'),
-                                              backgroundColor: const Color(0xFFEFF6FF),
-                                              side: const BorderSide(color: Color(0xFFBFDBFE)),
-                                            ),
-                                            Chip(
-                                              label: Text('Categoría: ${current.cat}'),
-                                              backgroundColor: const Color(0xFFF1F5F9),
-                                              side: const BorderSide(color: Color(0xFFE2E8F0)),
-                                            ),
-                                          ],
+                                        Chip(
+                                          label: Text('Categoría: ${current.cat}'),
+                                          backgroundColor: const Color(0xFFF1F5F9),
+                                          side: const BorderSide(color: Color(0xFFE2E8F0)),
                                         ),
                                       ],
                                     ),
-                                  ),
-                                ],
-                              );
-                            },
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -233,7 +216,7 @@ class _SignalModuleViewState extends State<_SignalModuleView> {
 
                   const SizedBox(height: 16),
 
-                  // ── Opciones estilizadas ────────────────────────────────────────
+                  // ── Opciones ────────────────────────────────────────────────────
                   Expanded(
                     child: ListView.separated(
                       itemCount: qc.options.length,
@@ -247,17 +230,17 @@ class _SignalModuleViewState extends State<_SignalModuleView> {
                         Color border;
                         if (qc.answerShown) {
                           if (isCorrect) {
-                            bg = const Color(0xFFE6F4EA); // correcto (verde claro)
+                            bg = const Color(0xFFE6F4EA);
                             border = const Color(0xFF34A853);
                           } else if (isSelected) {
-                            bg = const Color(0xFFFDE7E9); // seleccionado pero incorrecto
+                            bg = const Color(0xFFFDE7E9);
                             border = const Color(0xFFEA4335);
                           } else {
                             bg = Colors.white;
                             border = const Color(0xFFE2E8F0);
                           }
                         } else {
-                          bg = isSelected ? const Color(0xFFE3F2FD) : Colors.white; // selección
+                          bg = isSelected ? const Color(0xFFE3F2FD) : Colors.white;
                           border = isSelected ? const Color(0xFF1E88E5) : const Color(0xFFE2E8F0);
                         }
 
@@ -296,7 +279,7 @@ class _SignalModuleViewState extends State<_SignalModuleView> {
 
                   const SizedBox(height: 12),
 
-                  // ── Botón Verificar ────────────────────────────────────────────
+                  // ── Botón ───────────────────────────────────────────────────────
                   SizedBox(
                     width: double.infinity,
                     height: 52,
@@ -320,5 +303,44 @@ class _SignalModuleViewState extends State<_SignalModuleView> {
         ),
       ),
     );
+  }
+
+  /// 0: señal (1:1), 1: cono (1:1), 2: semáforo (1:1.6)
+  Widget _buildMascotForIndex({required int i}) {
+    if (i == 0) {
+      return const AspectRatio(
+        key: ValueKey('stop'),
+        aspectRatio: 1.0,
+        child: Center(
+          child: TrafficMascot(
+            state: MascotState.idle,
+            size: 300,
+            autoAnimate: true,
+          ),
+        ),
+      );
+    } else if (i == 1) {
+      return const AspectRatio(
+        key: ValueKey('cone'),
+        aspectRatio: 1.0,
+        child: Center(
+          child: TrafficConeMascot(
+            size: 300,
+            autoAnimate: true,
+          ),
+        ),
+      );
+    } else {
+      return const AspectRatio(
+        key: ValueKey('light'),
+        aspectRatio: 0.625, // 1 / 1.6
+        child: Center(
+          child: TrafficLightMascot(
+            size: 300,
+            autoAnimate: true,
+          ),
+        ),
+      );
+    }
   }
 }

@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:eduvial/controllers/question_controller.dart';
 import 'package:eduvial/controllers/global_identifier.dart';
-import 'package:eduvial/widgets/lesson_summary.dart'; // helper reutilizable
+import 'package:eduvial/widgets/lesson_summary.dart';
+
+// Mascotas
 import 'package:eduvial/widgets/mascot/traffic_mascot.dart';
 import 'package:eduvial/widgets/mascot/traffic_cone_mascot.dart' hide MascotState;
+import 'package:eduvial/widgets/mascot/traffic_light_mascot.dart' hide MascotState;
 
 class SimulationScreen extends StatelessWidget {
   final String rol;
@@ -44,9 +47,8 @@ class _SimulationViewState extends State<_SimulationView> {
 
   Future<void> _handleVerifyAndAutoAdvance(QuestionController qc) async {
     final result = qc.verifySelected();
-    if (result == null) return; // no había selección
+    if (result == null) return;
 
-    // Feedback inmediato
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(result ? '¡Correcto! +5 puntos' : 'Respuesta incorrecta'),
@@ -55,19 +57,15 @@ class _SimulationViewState extends State<_SimulationView> {
       ),
     );
 
-    // Espera breve para que el usuario vea el color en la opción + snackbar
     await Future.delayed(_autoAdvanceDelay);
-
     if (!mounted) return;
 
     if (qc.isLast) {
-      // ✅ Usamos el helper general para mostrar el resumen y manejar puntos/login
       await showLessonSummaryDialog(
         context,
         qc,
         title: 'Simulaciones completado',
         onExit: () async {
-          // el helper ya cierra el diálogo; aquí solo volvemos al menú
           if (mounted && Navigator.of(context).canPop()) {
             Navigator.of(context).pop();
           }
@@ -139,7 +137,6 @@ class _SimulationViewState extends State<_SimulationView> {
         absorbing: qc.busy,
         child: LayoutBuilder(
           builder: (context, constraints) {
-            // 📏 calcula tamaño de la mascota según ancho de pantalla
             final w = MediaQuery.of(context).size.width;
             final double mascotSize =
             w >= 1200 ? 160 : (w >= 900 ? 140 : (w >= 600 ? 120 : 96));
@@ -149,7 +146,7 @@ class _SimulationViewState extends State<_SimulationView> {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  // ── Tarjeta: Mascota (izq) + Pregunta (der) ───────────────────
+                  // ── Tarjeta: Mascota + Pregunta ───────────────────────────────
                   Center(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 900),
@@ -160,84 +157,67 @@ class _SimulationViewState extends State<_SimulationView> {
                         ),
                         child: Padding(
                           padding: const EdgeInsets.all(16),
-                          child: Builder(
-                            builder: (context) {
-                              // 🟡 Alternar por índice: par=señal, impar=cono
-                              final bool showCone = (qc.index % 2 == 1);
-
-                              return Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // 🟡 Mascota a la izquierda
-                                  SizedBox(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // 🟡 Mascota (rotación 3) con proporción correcta
+                              SizedBox(
+                                width: mascotSize, // solo ancho
+                                child: AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 220),
+                                  switchInCurve: Curves.easeOut,
+                                  switchOutCurve: Curves.easeIn,
+                                  child: _buildMascotForIndex(
+                                    i: qc.index % 3,
                                     width: mascotSize,
-                                    height: mascotSize,
-                                    child: AnimatedSwitcher(
-                                      duration: const Duration(milliseconds: 220),
-                                      switchInCurve: Curves.easeOut,
-                                      switchOutCurve: Curves.easeIn,
-                                      child: showCone
-                                          ? const TrafficConeMascot(
-                                        key: ValueKey('cone'),
-                                        size: 300,
-                                        autoAnimate: true,
-                                      )
-                                          : const TrafficMascot(
-                                        key: ValueKey('stop'),
-                                        state: MascotState.idle,
-                                        size:300,
-                                        autoAnimate: true,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+
+                              // ❓ Pregunta + chips
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      current.txt,
+                                      softWrap: true,
+                                      style: const TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w700,
                                       ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 16),
-
-                                  // ❓ Pregunta y chips a la derecha
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                    const SizedBox(height: 10),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 8,
                                       children: [
-                                        Text(
-                                          current.txt,
-                                          softWrap: true,
-                                          style: const TextStyle(
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.w700,
-                                          ),
+                                        Chip(
+                                          label: Text('Nivel: ${current.lvl}'),
+                                          backgroundColor: const Color(0xFFEFF6FF),
+                                          side: const BorderSide(color: Color(0xFFBFDBFE)),
                                         ),
-                                        const SizedBox(height: 10),
-                                        Wrap(
-                                          spacing: 8,
-                                          runSpacing: 8,
-                                          children: [
-                                            Chip(
-                                              label: Text('Nivel: ${current.lvl}'),
-                                              backgroundColor: const Color(0xFFEFF6FF),
-                                              side: const BorderSide(color: Color(0xFFBFDBFE)),
-                                            ),
-                                            Chip(
-                                              label: Text('Categoría: ${current.cat}'),
-                                              backgroundColor: const Color(0xFFF1F5F9),
-                                              side: const BorderSide(color: Color(0xFFE2E8F0)),
-                                            ),
-                                          ],
+                                        Chip(
+                                          label: Text('Categoría: ${current.cat}'),
+                                          backgroundColor: const Color(0xFFF1F5F9),
+                                          side: const BorderSide(color: Color(0xFFE2E8F0)),
                                         ),
                                       ],
                                     ),
-                                  ),
-                                ],
-                              );
-                            },
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
                     ),
                   ),
 
-
                   const SizedBox(height: 16),
 
-                  // ── Opciones (lista) ────────────────────────────────────────────
+                  // ── Opciones ────────────────────────────────────────────────────
                   Expanded(
                     child: ListView.separated(
                       itemCount: qc.options.length,
@@ -245,28 +225,28 @@ class _SimulationViewState extends State<_SimulationView> {
                       itemBuilder: (context, index) {
                         final opcion = qc.options[index];
                         final isSelected = qc.selectedIndex == index;
-                        final isCorrect  = opcion.correct == true;
+                        final isCorrect = opcion.correct == true;
 
                         Color bg;
                         Color border;
                         if (qc.answerShown) {
                           if (isCorrect) {
-                            bg = const Color(0xFFE6F4EA);      // correcto (verde claro)
+                            bg = const Color(0xFFE6F4EA);
                             border = const Color(0xFF34A853);
                           } else if (isSelected) {
-                            bg = const Color(0xFFFDE7E9);      // seleccionado pero incorrecto
+                            bg = const Color(0xFFFDE7E9);
                             border = const Color(0xFFEA4335);
                           } else {
                             bg = Colors.white;
                             border = const Color(0xFFE2E8F0);
                           }
                         } else {
-                          bg     = isSelected ? const Color(0xFFE3F2FD) : Colors.white; // selección
+                          bg = isSelected ? const Color(0xFFE3F2FD) : Colors.white;
                           border = isSelected ? const Color(0xFF1E88E5) : const Color(0xFFE2E8F0);
                         }
 
                         return InkWell(
-                          onTap: () => qc.selectOption(index), // ✅ misma lógica
+                          onTap: () => qc.selectOption(index),
                           borderRadius: BorderRadius.circular(14),
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 150),
@@ -285,7 +265,10 @@ class _SimulationViewState extends State<_SimulationView> {
                                 ),
                                 const SizedBox(width: 10),
                                 Expanded(
-                                  child: Text(opcion.txt, style: const TextStyle(fontSize: 16, height: 1.2)),
+                                  child: Text(
+                                    opcion.txt,
+                                    style: const TextStyle(fontSize: 16, height: 1.2),
+                                  ),
                                 ),
                               ],
                             ),
@@ -297,13 +280,13 @@ class _SimulationViewState extends State<_SimulationView> {
 
                   const SizedBox(height: 12),
 
-                  // ── Botón: Verificar respuesta ──────────────────────────────────
+                  // ── Botón: Verificar ───────────────────────────────────────────
                   SizedBox(
                     width: double.infinity,
                     height: 52,
                     child: ElevatedButton(
                       onPressed: (qc.selectedIndex != null && !qc.answerShown)
-                          ? () => _handleVerifyAndAutoAdvance(qc) // ✅ misma función tuya
+                          ? () => _handleVerifyAndAutoAdvance(qc)
                           : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF1E88E5),
@@ -321,5 +304,48 @@ class _SimulationViewState extends State<_SimulationView> {
         ),
       ),
     );
+  }
+
+  /// Construye la mascota para el índice (0: señal, 1: cono, 2: semáforo)
+  /// aplicando el AspectRatio correcto para NO deformar.
+  Widget _buildMascotForIndex({required int i, required double width}) {
+    if (i == 0) {
+      // Señal: cuadrada (1:1)
+      return const AspectRatio(
+        key: ValueKey('stop'),
+        aspectRatio: 1.0,
+        child: Center(
+          child: TrafficMascot(
+            state: MascotState.idle,
+            size: 300,
+            autoAnimate: true,
+          ),
+        ),
+      );
+    } else if (i == 1) {
+      // Cono: cuadrado (1:1)
+      return const AspectRatio(
+        key: ValueKey('cone'),
+        aspectRatio: 1.0,
+        child: Center(
+          child: TrafficConeMascot(
+            size: 300,
+            autoAnimate: true,
+          ),
+        ),
+      );
+    } else {
+      // Semáforo: más alto (1 : 1.6) => aspectRatio = width / height = 1/1.6
+      return const AspectRatio(
+        key: ValueKey('light'),
+        aspectRatio: 0.625, // 1 / 1.6
+        child: Center(
+          child: TrafficLightMascot(
+            size: 300,
+            autoAnimate: true,
+          ),
+        ),
+      );
+    }
   }
 }
