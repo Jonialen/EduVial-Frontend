@@ -31,17 +31,17 @@ Future<void> showLessonSummaryDialog(
   Color colorIcono;
 
   if (porcentaje == 100) {
-    mensaje = '¡Excelente! Respondiste correctamente las $total preguntas 🎉';
+    mensaje = '¡Excelente! Respondiste correctamente las $total preguntas ';
     icono = Icons.emoji_events;
     colorIcono = Colors.amber;
   } else if (porcentaje >= 70) {
-    mensaje = '¡Buen trabajo! Aciertos: $correctas de $total ($porcentaje%) 💪';
+    mensaje = '¡Buen trabajo! Aciertos: $correctas de $total ($porcentaje%) ';
     icono = Icons.thumb_up;
     colorIcono = Colors.green;
   } else {
     mensaje =
     'Lección completada.\nAciertos: $correctas de $total ($porcentaje%).\n¡Sigue practicando!';
-    icono = Icons.lightbulb;
+    icono = Icons.thumb_down;
     colorIcono = Colors.orange;
   }
 
