@@ -1,89 +1,115 @@
-// lib/widgets/lesson_summary.dart
 import 'package:flutter/material.dart';
 import 'package:eduvial/controllers/question_controller.dart';
-import 'package:eduvial/services/guest_helper.dart';
 
-typedef AsyncVoid = Future<void> Function();
-
+/// Muestra el resumen de la lección al finalizar.
+/// - Refleja el nuevo sistema: progreso = ACERTOS / TOTAL (5/10/15)
+/// - Mensaje según desempeño
+/// - Sincroniza puntos con el backend antes de cerrar
+///
+/// Uso típico:
+/// await showLessonSummaryDialog(
+///   context,
+///   qc,
+///   title: 'Módulo de Señales completado',
+///   onExit: () async {
+///     if (Navigator.of(context).canPop()) Navigator.of(context).pop();
+///   },
+/// );
 Future<void> showLessonSummaryDialog(
     BuildContext context,
     QuestionController qc, {
-      String title = 'Módulo completado',
-      String retryLabel = 'Reintentar',
-      String exitLabel  = 'Volver al menú',
-      AsyncVoid? onRetry,
-      AsyncVoid? onExit,
+      required String title,
+      Future<void> Function()? onExit,
     }) async {
-  // 1) Preguntar acceso primero
-  final gate = await requireAuthOrAlert(
-    context,
-    featureName: 'Sumar puntos por lección',
-    onGoLogin: () => Navigator.of(context).pushNamed('/login'),
-  );
+  final correctas = qc.scoreLesson;     // aciertos
+  final total = qc.total;               // 5 / 10 / 15
+  final puntos = qc.scoreLessonPoints;  // aciertos * 5
+  final porcentaje = (total == 0) ? 0 : ((correctas / total) * 100).round();
 
-  if (gate == AuthPromptResult.goLogin) {
-    // Usuario eligió ir a Login: NO mostramos summary para no bloquear.
-    return;
+  String mensaje;
+  IconData icono;
+  Color colorIcono;
+
+  if (porcentaje == 100) {
+    mensaje = '¡Excelente! Respondiste correctamente las $total preguntas 🎉';
+    icono = Icons.emoji_events;
+    colorIcono = Colors.amber;
+  } else if (porcentaje >= 70) {
+    mensaje = '¡Buen trabajo! Aciertos: $correctas de $total ($porcentaje%) 💪';
+    icono = Icons.thumb_up;
+    colorIcono = Colors.green;
+  } else {
+    mensaje =
+    'Lección completada.\nAciertos: $correctas de $total ($porcentaje%).\n¡Sigue practicando!';
+    icono = Icons.lightbulb;
+    colorIcono = Colors.orange;
   }
 
-  int? totalNew;
-  final wasGuest = gate != AuthPromptResult.proceed; // cancel == invitado
-  if (!wasGuest) {
-    totalNew = await qc.finishAndSync(); // ya tiene JWT
-  }
-
-  if (!context.mounted) return;
-
-  await showDialog(
+  await showDialog<void>(
     context: context,
     barrierDismissible: false,
-    builder: (_) => AlertDialog(
-      title: Text(title),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text('Respondiste ${qc.scoreLesson} de ${qc.questions.length} correctamente.'),
-          const SizedBox(height: 12),
-          Text('Puntos añadidos: ${qc.scoreLessonPoints}'),
-          if (!wasGuest && totalNew != null) Text('Total actual: $totalNew'),
-          const SizedBox(height: 12),
-          Text(
-            qc.scoreLesson >= (qc.questions.length / 2) ? 'Buen trabajo' : 'Puedes mejorar',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: qc.scoreLesson >= (qc.questions.length / 2) ? Colors.green : Colors.red,
+    builder: (ctx) {
+      return AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(title, textAlign: TextAlign.center),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Icon(icono, color: colorIcono, size: 64),
+            const SizedBox(height: 16),
+            Text(
+              mensaje,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 16, height: 1.4),
             ),
-          ),
-          if (!wasGuest && totalNew == null)
-            const Padding(
-              padding: EdgeInsets.only(top: 8.0),
-              child: Text(
-                'No se pudo sincronizar el puntaje con el servidor.',
-                style: TextStyle(color: Colors.red),
+            const SizedBox(height: 16),
+            Text(
+              'Puntos obtenidos: $puntos',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(ctx).pop(); // cerrar diálogo
+                  // No sincroniza puntos: solo cerrar si quieres depurar
+                },
+                child: const Text('Cerrar'),
               ),
-            ),
+              const SizedBox(width: 8),
+              ElevatedButton(
+                onPressed: () async {
+                  // Sincroniza puntos (si el usuario está autenticado)
+                  await qc.finishAndSyncGuarded(
+                    context,
+                    onGoLogin: () => Navigator.of(context).pushNamed('/login'),
+                  );
+
+                  if (ctx.mounted) Navigator.of(ctx).pop(); // cerrar diálogo
+                  if (onExit != null) await onExit();       // volver a la pantalla anterior
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1E88E5),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                ),
+                child: const Text('Finalizar'),
+              ),
+            ],
+          ),
         ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () async {
-            Navigator.of(context).pop();
-            await (onRetry ?? qc.restart)();
-          },
-          child: Text(retryLabel),
-        ),
-        TextButton(
-          onPressed: () async {
-            Navigator.of(context).pop();
-            if (onExit != null) {
-              await onExit();
-            } else if (Navigator.of(context).canPop()) {
-              Navigator.of(context).pop();
-            }
-          },
-          child: Text(exitLabel),
-        ),
-      ],
-    ),
+      );
+    },
   );
 }

@@ -11,8 +11,13 @@ import 'package:eduvial/widgets/mascot/traffic_light_mascot.dart' hide MascotSta
 
 class ScenarioModule extends StatelessWidget {
   final String rol;
+  final int? totalPreguntas;
 
-  const ScenarioModule({super.key, required this.rol});
+  const ScenarioModule({
+    super.key,
+    required this.rol,
+    this.totalPreguntas,
+  });
 
   String _mapNivelToData(String nivelUI) {
     if (global_identifier.counter == 0) return 'Básico';
@@ -28,7 +33,7 @@ class ScenarioModule extends StatelessWidget {
       create: (_) => QuestionController(
         category: 'Escenarios',
         level: levelForData,
-        maxQuestions: 5,
+        maxQuestions: totalPreguntas ?? 5,
       )..init(),
       child: const _ScenarioModuleView(),
     );
@@ -60,7 +65,7 @@ class _ScenarioModuleViewState extends State<_ScenarioModuleView> {
     await Future.delayed(_autoAdvanceDelay);
     if (!mounted) return;
 
-    if (qc.isLast) {
+    if (qc.isFinished) {
       await showLessonSummaryDialog(
         context,
         qc,
@@ -146,6 +151,32 @@ class _ScenarioModuleViewState extends State<_ScenarioModuleView> {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
+                  // ── Barra de progreso (respondidas + color por fallos) ─────────
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: Column(
+                      children: [
+                        TweenAnimationBuilder<double>(
+                          duration: const Duration(milliseconds: 220),
+                          tween: Tween<double>(begin: 0, end: qc.progress),
+                          builder: (context, value, _) {
+                            return LinearProgressIndicator(
+                              value: value,
+                              backgroundColor: Colors.grey[300],
+                              color: qc.progressColor,
+                              minHeight: 8,
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          '${qc.answered}/${qc.total} preguntas respondidas',
+                          style: const TextStyle(fontSize: 14, color: Colors.black54),
+                        ),
+                      ],
+                    ),
+                  ),
+
                   // ── Tarjeta: Mascota + Pregunta ───────────────────────────────
                   Center(
                     child: ConstrainedBox(
@@ -160,16 +191,13 @@ class _ScenarioModuleViewState extends State<_ScenarioModuleView> {
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // 🟡 Mascota (rotación 3) con proporción correcta
                               SizedBox(
-                                width: mascotSize, // solo ancho
+                                width: mascotSize,
                                 child: AnimatedSwitcher(
                                   duration: const Duration(milliseconds: 220),
                                   switchInCurve: Curves.easeOut,
                                   switchOutCurve: Curves.easeIn,
-                                  child: _buildMascotForIndex(
-                                    i: qc.index % 3,
-                                  ),
+                                  child: _buildMascotForIndex(i: qc.index % 3),
                                 ),
                               ),
                               const SizedBox(width: 16),
@@ -333,7 +361,7 @@ class _ScenarioModuleViewState extends State<_ScenarioModuleView> {
     } else {
       return const AspectRatio(
         key: ValueKey('light'),
-        aspectRatio: 0.625, // 1 / 1.6
+        aspectRatio: 0.625,
         child: Center(
           child: TrafficLightMascot(
             size: 300,

@@ -14,7 +14,6 @@ import 'package:eduvial/services/guest_helper.dart'; // requireAuthOrAlert
 import 'package:eduvial/widgets/mascot/traffic_cone_mascot.dart' hide MascotState;
 import 'package:eduvial/widgets/mascot/traffic_mascot.dart';
 
-
 class Menu extends StatefulWidget {
   const Menu({super.key});
 
@@ -38,9 +37,13 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
     MascotState.alert,
   ];
 
-  // --- NUEVO: puntos / loading ---
+  // --- Puntos / loading ---
   int? _points;          // null = aún no cargados
   bool _loadingPoints = false;
+
+  // --- NUEVO: índice expandido por grupo para mostrar 5/10/15 ---
+  int? _expandedIdxPrincipiante;
+  int? _expandedIdxAvanzado;
 
   @override
   void initState() {
@@ -54,7 +57,7 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
       curve: Curves.easeOut,
     );
 
-    // Iniciar animaciones automáticas cada 5 segundos
+    // Animaciones automáticas cada 5 s
     _mascotTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (mounted) {
         setState(() {
@@ -76,7 +79,7 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
     setState(() => _loadingPoints = true);
 
     try {
-      // 1) Cache rápido (si lo tuvieras guardado en el userJson)
+      // 1) Cache rápido
       final raw = await auth_controller.loadCachedUserJson();
       if (raw != null) {
         try {
@@ -116,6 +119,7 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
     setState(() {
       _showPrincipianteSubmodulos = !_showPrincipianteSubmodulos;
       _showAvanzadoSubmodulos = false;
+      _expandedIdxPrincipiante = null; // reset mini-señales
       _mascotState = MascotState.pointing;
 
       if (_showPrincipianteSubmodulos) {
@@ -149,6 +153,7 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
     setState(() {
       _showAvanzadoSubmodulos = !_showAvanzadoSubmodulos;
       _showPrincipianteSubmodulos = false;
+      _expandedIdxAvanzado = null; // reset mini-señales
       _mascotState = MascotState.pointing;
 
       if (_showAvanzadoSubmodulos) {
@@ -160,7 +165,59 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
     });
   }
 
+  // --- NUEVO: manejar tap sobre un submódulo para desplegar 5/10/15 ---
+  void _onTapSubmodulo({
+    required bool isAvanzado,
+    required int index,
+  }) {
+    setState(() {
+      if (isAvanzado) {
+        _expandedIdxAvanzado = (_expandedIdxAvanzado == index) ? null : index;
+        _expandedIdxPrincipiante = null;
+      } else {
+        _expandedIdxPrincipiante = (_expandedIdxPrincipiante == index) ? null : index;
+        _expandedIdxAvanzado = null;
+      }
+    });
+  }
+
+  // --- NUEVO: navegar con el número de preguntas seleccionado ---
+  void _startModulo({
+    required String nombre,
+    required String nivelUI, // 'Principiante' | 'Avanzado'
+    required int preguntas,  // 5 | 10 | 15
+  }) {
+    final nivelLower = nivelUI.toLowerCase();
+    global_identifier.counter = (nivelUI == 'Principiante') ? 0 : 1;
+
+    switch (nombre) {
+      case 'Simulaciones':
+        Navigator.of(context).push(
+          slideUpRoute(SimulationScreen(rol: nivelUI, totalPreguntas: preguntas)),
+        );
+        break;
+      case 'Señales':
+        Navigator.of(context).push(
+          slideUpRoute(SignalModule(nivel: nivelUI, totalPreguntas: preguntas)),
+        );
+        break;
+      case 'Escenarios':
+        Navigator.of(context).push(
+          slideUpRoute(ScenarioModule(rol: nivelUI, totalPreguntas: preguntas)),
+        );
+        break;
+      default:
+      // fallback: no debería pasar
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Abrir $nombre ($preguntas preguntas) — $nivelLower')),
+        );
+    }
+  }
+
+  // Construye el bloque de submódulos manteniendo TUS CoinButton
   Widget _buildSubmodulos(String nivel) {
+    final bool isAvanzado = (nivel == 'Avanzado');
+
     final List<Map<String, dynamic>> submodulos = [
       {
         'nombre': 'Simulaciones',
@@ -170,11 +227,6 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
         'faceDark': const Color(0xFFE53935),
         'faceLight': const Color(0xFFFF8A80),
         'depth': 6.0,
-        'onTap': () {
-          Navigator.of(context).push(
-            slideUpRoute(SimulationScreen(rol: nivel.toLowerCase())),
-          );
-        },
       },
       {
         'nombre': 'Señales',
@@ -184,11 +236,6 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
         'faceDark': const Color(0xFFFF9800),
         'faceLight': const Color(0xFFFFE0B2),
         'depth': 6.0,
-        'onTap': () {
-          Navigator.of(context).push(
-            slideUpRoute(SignalModule(nivel: nivel.toLowerCase())),
-          );
-        },
       },
       {
         'nombre': 'Escenarios',
@@ -198,11 +245,6 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
         'faceDark': const Color(0xFF2DBD3A),
         'faceLight': const Color(0xFF6CD93B),
         'depth': 6.0,
-        'onTap': () {
-          Navigator.of(context).push(
-            slideUpRoute(ScenarioModule(rol: nivel.toLowerCase())),
-          );
-        },
       },
     ];
 
@@ -212,9 +254,16 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
         margin: const EdgeInsets.only(top: 20),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: submodulos.map((m) {
+          children: submodulos.asMap().entries.map((entry) {
+            final int idx = entry.key;
+            final m = entry.value;
+            final bool expanded = isAvanzado
+                ? (_expandedIdxAvanzado == idx)
+                : (_expandedIdxPrincipiante == idx);
+
             return Column(
               children: [
+                // TUS CoinButton: no cambia, solo su onTap
                 CoinButton(
                   icon: m['icono'],
                   size: 78,
@@ -223,7 +272,7 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
                   faceDark: m['faceDark'],
                   faceLight: m['faceLight'],
                   depth: m['depth'],
-                  onTap: m['onTap'],
+                  onTap: () => _onTapSubmodulo(isAvanzado: isAvanzado, index: idx),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -232,6 +281,32 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
                   ),
+                ),
+
+                // --- NUEVO: señales 5 / 10 / 15 debajo del botón al tocarlo ---
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  child: expanded
+                      ? Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [5, 10, 15].map((q) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 6),
+                          child: _TrafficCircleSign(
+                            text: '$q',
+                            onTap: () => _startModulo(
+                              nombre: m['nombre'] as String,
+                              nivelUI: nivel,
+                              preguntas: q,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  )
+                      : const SizedBox.shrink(),
                 ),
               ],
             );
@@ -432,7 +507,7 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
             right: 20,
             child: TrafficMascot(
               state: _mascotState,
-              size: 100,
+              size: 200,
               onTap: () {
                 setState(() {
                   _mascotState = MascotState.celebrating;
@@ -448,6 +523,37 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Señal de tránsito circular (borde rojo y fondo blanco) para 5/10/15
+class _TrafficCircleSign extends StatelessWidget {
+  final String text;
+  final VoidCallback onTap;
+  const _TrafficCircleSign({required this.text, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.white,
+          border: Border.all(color: const Color(0xFFD32F2F), width: 5),
+          boxShadow: const [
+            BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 3)),
+          ],
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          text,
+          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Colors.black87),
+        ),
       ),
     );
   }
