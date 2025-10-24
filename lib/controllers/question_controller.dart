@@ -11,7 +11,7 @@ class QuestionController extends ChangeNotifier {
   QuestionController({
     required this.category,
     required this.level,
-    this.maxQuestions = 5,
+    this.maxQuestions = 215,
   });
 
   final String category;
@@ -88,6 +88,7 @@ class QuestionController extends ChangeNotifier {
   }
 
   Future<void> _loadQuestions() async {
+    debugPrint('🌐 Descargando preguntas desde ${ApiConstants.questEndpoint}...');
     final resp = await http
         .get(Uri.parse(ApiConstants.questEndpoint))
         .timeout(const Duration(seconds: 15));
@@ -102,9 +103,28 @@ class QuestionController extends ChangeNotifier {
         .map((j) => Pregunta.fromJson(j))
         .toList();
 
+    // 📊 --- Log de conteos por categoría y nivel ---
+    final Map<String, Map<String, int>> conteos = {};
+    for (final p in todas) {
+      conteos.putIfAbsent(p.cat, () => {});
+      conteos[p.cat]!.update(p.lvl, (v) => v + 1, ifAbsent: () => 1);
+    }
+
+    debugPrint('📘 Resumen de preguntas cargadas:');
+    conteos.forEach((cat, niveles) {
+      debugPrint('  📂 Categoría "$cat":');
+      niveles.forEach((lvl, count) {
+        debugPrint('     - Nivel "$lvl": $count preguntas');
+      });
+    });
+
+    // 🔍 Filtro actual
     final filtradas = todas
         .where((p) => p.lvl == level && p.cat == category)
         .toList();
+
+    debugPrint(
+        '🔎 Coincidencias actuales → cat="$category", lvl="$level": ${filtradas.length} preguntas');
 
     if (filtradas.isEmpty) {
       throw Exception('No hay preguntas para el nivel $level en $category');
@@ -112,6 +132,7 @@ class QuestionController extends ChangeNotifier {
 
     filtradas.shuffle();
     _questions = filtradas.take(maxQuestions).toList();
+
     _index = 0;
     _scoreLesson = 0;
     _answeredCount = 0;
@@ -119,7 +140,12 @@ class QuestionController extends ChangeNotifier {
     _current = _questions.first;
     _answerShown = false;
     _selectedIndex = null;
+
+    debugPrint(
+        '✅ Seleccionadas para la lección: ${_questions.length} (máx. $maxQuestions)\n'
+            '🟢 Módulo listo → cat="$category", lvl="$level"');
   }
+
 
   Future<void> _loadOptions(int questionId) async {
     _busy = true;

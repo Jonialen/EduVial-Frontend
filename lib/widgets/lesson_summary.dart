@@ -1,114 +1,163 @@
 import 'package:flutter/material.dart';
 import 'package:eduvial/controllers/question_controller.dart';
+import 'package:eduvial/controllers/auth_controller.dart' as auth;
 
-/// Muestra el resumen de la lección al finalizar.
-/// - Refleja el nuevo sistema: progreso = ACERTOS / TOTAL (5/10/15)
-/// - Mensaje según desempeño
-/// - Sincroniza puntos con el backend antes de cerrar
-///
-/// Uso típico:
-/// await showLessonSummaryDialog(
-///   context,
-///   qc,
-///   title: 'Módulo de Señales completado',
-///   onExit: () async {
-///     if (Navigator.of(context).canPop()) Navigator.of(context).pop();
-///   },
-/// );
+/// Muestra el resumen de lección.
+/// - Si hay sesión (JWT válido): permite sumar puntos (finishAndSyncGuarded)
+/// - Si NO hay sesión: muestra mensaje de invitado y opciones:
+///     - Cerrar → vuelve al menú (usa onExit si lo pasas desde la pantalla)
+///     - Iniciar sesión → navega a '/login'
 Future<void> showLessonSummaryDialog(
     BuildContext context,
     QuestionController qc, {
-      required String title,
-      Future<void> Function()? onExit,
+      String title = 'Lección completada',
+      VoidCallback? onExit, // úsalo para volver al menú
     }) async {
-  final correctas = qc.scoreLesson;     // aciertos
-  final total = qc.total;               // 5 / 10 / 15
-  final puntos = qc.scoreLessonPoints;  // aciertos * 5
-  final porcentaje = (total == 0) ? 0 : ((correctas / total) * 100).round();
-
-  String mensaje;
-  IconData icono;
-  Color colorIcono;
-
-  if (porcentaje == 100) {
-    mensaje = '¡Excelente! Respondiste correctamente las $total preguntas ';
-    icono = Icons.emoji_events;
-    colorIcono = Colors.amber;
-  } else if (porcentaje >= 70) {
-    mensaje = '¡Buen trabajo! Aciertos: $correctas de $total ($porcentaje%) ';
-    icono = Icons.thumb_up;
-    colorIcono = Colors.green;
-  } else {
-    mensaje =
-    'Lección completada.\nAciertos: $correctas de $total ($porcentaje%).\n¡Sigue practicando!';
-    icono = Icons.thumb_down;
-    colorIcono = Colors.orange;
-  }
-
-  await showDialog<void>(
+  return showDialog<void>(
     context: context,
     barrierDismissible: false,
-    builder: (ctx) {
-      return AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(title, textAlign: TextAlign.center),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 8),
-            Icon(icono, color: colorIcono, size: 64),
-            const SizedBox(height: 16),
-            Text(
-              mensaje,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 16, height: 1.4),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Puntos obtenidos: $puntos',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-        actionsAlignment: MainAxisAlignment.center,
-        actions: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              TextButton(
-                onPressed: () {
-                  Navigator.of(ctx).pop(); // cerrar diálogo
-                  // No sincroniza puntos: solo cerrar si quieres depurar
-                },
-                child: const Text('Cerrar'),
-              ),
-              const SizedBox(width: 8),
-              ElevatedButton(
-                onPressed: () async {
-                  // Sincroniza puntos (si el usuario está autenticado)
-                  await qc.finishAndSyncGuarded(
-                    context,
-                    onGoLogin: () => Navigator.of(context).pushNamed('/login'),
-                  );
+    builder: (_) {
+      bool isGuest = false;
+      bool checking = true;
+      bool syncing = false;
+      String? syncMsg;
 
-                  if (ctx.mounted) Navigator.of(ctx).pop(); // cerrar diálogo
-                  if (onExit != null) await onExit();       // volver a la pantalla anterior
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E88E5),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                ),
-                child: const Text('Finalizar'),
+      Future<void> _checkAuth() async {
+        try {
+          final me = await auth.auth_controller.getMeBasic(); // tu método ya usado
+          final ok = (me['success'] == true && me['user'] != null);
+          isGuest = !ok;
+        } catch (_) {
+          isGuest = true; // si falla, trátalo como invitado
+        } finally {
+          checking = false;
+        }
+      }
+
+      // lanzamos la verificación al construir el diálogo
+      return FutureBuilder(
+        future: _checkAuth(),
+        builder: (context, snapshot) {
+          if (checking) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Text(title),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: const [
+                  SizedBox(height: 8),
+                  LinearProgressIndicator(minHeight: 4),
+                  SizedBox(height: 12),
+                  Text('Preparando resumen...'),
+                ],
               ),
-            ],
-          ),
-        ],
+            );
+          }
+
+          // --- VISTA DE INVITADO (sin JWT) ---
+          if (isGuest) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Text(title),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Respuestas correctas: ${qc.scoreLesson} / ${qc.total}'),
+                  const SizedBox(height: 8),
+                  Text(
+                    'No puedes sumar puntos porque no has iniciado sesión.\n'
+                        'Crea una cuenta o inicia sesión para empezar a ganar puntos.',
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+              actions: [
+                // Cerrar: cierra el diálogo y vuelve al menú (onExit)
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop(); // cierra el diálogo
+                    onExit?.call();              // vuelve al menú (pantalla anterior)
+                  },
+                  child: const Text('Cerrar'),
+                ),
+                // Iniciar sesión: cierra el diálogo y navega a /login
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();                 // cierra el diálogo
+                    Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                    // abre login
+                  },
+                  child: const Text('Iniciar sesión'),
+                ),
+              ],
+            );
+          }
+
+          // --- VISTA DE USUARIO LOGUEADO (con JWT) ---
+          Future<void> _sync() async {
+            if (syncing) return;
+            syncing = true;
+            syncMsg = null;
+            (context as Element).markNeedsBuild();
+
+            final newTotal = await qc.finishAndSyncGuarded(
+              context,
+              onGoLogin: () => Navigator.of(context).pushNamed('/login'),
+            );
+
+            syncing = false;
+            if (newTotal != null) {
+              syncMsg = '✅ ¡Puntos sumados! Total actual: $newTotal';
+            } else {
+              syncMsg = 'ℹ️ No se sumaron puntos.';
+            }
+            (context as Element).markNeedsBuild();
+          }
+
+          return StatefulBuilder(
+            builder: (ctx, setState) {
+              return AlertDialog(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                title: Text(title),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Respuestas correctas: ${qc.scoreLesson} / ${qc.total}'),
+                    const SizedBox(height: 8),
+                    Text('Puntaje obtenido: ${qc.scoreLessonPoints}'),
+                    if (syncing) ...[
+                      const SizedBox(height: 12),
+                      const LinearProgressIndicator(minHeight: 4),
+                    ],
+                    if (syncMsg != null) ...[
+                      const SizedBox(height: 12),
+                      Text(syncMsg!, textAlign: TextAlign.center),
+                    ],
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: syncing
+                        ? null
+                        : () async {
+                      await _sync(); // suma puntos bajo sesión
+                    },
+                    child: const Text('Guardar puntos'),
+                  ),
+                  ElevatedButton(
+                    onPressed: syncing
+                        ? null
+                        : () {
+                      Navigator.of(ctx).pop(); // cierra diálogo
+                      onExit?.call();          // vuelve al menú si se lo pasaron
+                    },
+                    child: const Text('Terminar'),
+                  ),
+                ],
+              );
+            },
+          );
+        },
       );
     },
   );
