@@ -2,7 +2,12 @@ import 'package:flutter/material.dart';
 import '../services/ranking_service.dart';
 import '../models/user.dart';
 import '../services/me_ranking.dart';
-import 'package:eduvial/widgets/ranking_welcome.dart'; // ⬅️ Importa el overlay
+import 'package:eduvial/widgets/ranking_welcome.dart';
+
+// 🎨 Paleta azul compartida
+const Color kAccentBlue = Color(0xFF3C8CE7);
+const Color kLightBlue = Color(0xFF89CFF0);
+const Color kBlueContainer = Color(0xFFD9ECFF);
 
 class RankingScreen extends StatefulWidget {
   final String token;
@@ -14,8 +19,14 @@ class RankingScreen extends StatefulWidget {
 }
 
 class _RankingScreenState extends State<RankingScreen> {
-  static const List<int?> filters = [null, 15, 10, 5, 1];
-  static const List<String> labels = ['Todos', 'Top 15', 'Top 10', 'Top 5', 'Top 1'];
+  // Filtros: Todos, Top 10, Top 3
+  static const List<int?> filters = [null, 10, 3];
+  static const List<String> labels = ['Todos', 'Top 10', 'Top 3'];
+  static const List<IconData?> icons = [
+    Icons.all_inclusive,
+    Icons.leaderboard,
+    Icons.military_tech
+  ];
 
   int? selectedLimit = null;
   late final RankingService service = RankingService(widget.token);
@@ -26,7 +37,6 @@ class _RankingScreenState extends State<RankingScreen> {
     super.initState();
     futureData = _loadData();
 
-    // ⬇️ Mostrar overlay de bienvenida al entrar
     WidgetsBinding.instance.addPostFrameCallback((_) {
       showRankingWelcomeDialog(
         context,
@@ -45,10 +55,6 @@ class _RankingScreenState extends State<RankingScreen> {
     return _RankingData(top: top, me: me);
   }
 
-  void _reload() {
-    setState(() => futureData = _loadData());
-  }
-
   void _onSelectLimit(int? limit) {
     setState(() {
       selectedLimit = limit;
@@ -63,91 +69,185 @@ class _RankingScreenState extends State<RankingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Ranking')),
-      body: FutureBuilder<_RankingData>(
-        future: futureData,
-        builder: (context, snap) {
-          if (snap.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snap.hasError) {
-            return Center(child: Text('Error: ${snap.error}'));
-          }
-          final data = snap.data!;
-          final users = data.top;
+    return FutureBuilder<_RankingData>(
+      future: futureData,
+      builder: (context, snap) {
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Ranking'),
+            backgroundColor: kAccentBlue,
+            foregroundColor: Colors.white,
+            elevation: 2,
+          ),
+          body: _buildBody(context, snap),
+        );
+      },
+    );
+  }
 
-          final listLimit = selectedLimit ?? users.length;
+  Widget _buildBody(BuildContext context, AsyncSnapshot<_RankingData> snap) {
+    if (snap.connectionState != ConnectionState.done) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (snap.hasError) {
+      return Center(child: Text('Error: ${snap.error}'));
+    }
 
-          final String myDisplayName = data.me?.name ?? widget.me.name;
-          final int myBackendPos = data.me?.position ?? 0;
-          final int myBackendPoints = data.me?.points ?? 0;
+    final data = snap.data!;
+    final allUsers = data.top;
 
-          final bool shouldBeInTop = (myBackendPos > 0) && (myBackendPos <= listLimit);
-          final int myIndexInList = users.indexWhere((u) => _eqName(u.name, myDisplayName));
-          final bool appearsInList = myIndexInList != -1;
+    // Lista visible (solo >0 puntos) según filtro
+    final ranked = allUsers.where((u) => (u.points ?? 0) > 0).toList();
+    final int listLimit = selectedLimit ?? ranked.length;
+    final List<User> visible = ranked.take(listLimit).toList();
 
-          final String mySubtitle = shouldBeInTop && appearsInList
-              ? 'Estás en este Top'
-              : (shouldBeInTop && !appearsInList)
-              ? 'Deberías aparecer en este Top'
-              : 'No apareces en este Top';
+    final String myDisplayName = data.me?.name ?? widget.me.name;
+    final int myBackendPoints = data.me?.points ?? 0;
+    final bool meHasPoints = myBackendPoints > 0;
 
-          return RefreshIndicator(
-            onRefresh: () async => _reload(),
-            child: ListView(
-              padding: const EdgeInsets.all(12),
-              children: [
-                Wrap(
+    // ✅ Usa SIEMPRE la posición del backend (independiente del filtro)
+    final int myGlobalPos = (data.me?.position ?? 0) > 0 && meHasPoints
+        ? (data.me!.position!)
+        : 0;
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        setState(() => futureData = _loadData());
+        await futureData;
+      },
+      child: ListView(
+        padding: const EdgeInsets.all(12),
+        children: [
+          // ==== Filtros (izquierda) + Mi posición (derecha) ====
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Wrap(
                   spacing: 8,
+                  runSpacing: 8,
                   children: List.generate(filters.length, (i) {
                     final value = filters[i];
+                    final selected = value == selectedLimit;
                     return ChoiceChip(
+                      avatar: Icon(
+                        icons[i],
+                        size: 18,
+                        color: selected ? Colors.white : kAccentBlue,
+                      ),
                       label: Text(labels[i]),
-                      selected: value == selectedLimit,
+                      selected: selected,
                       onSelected: (_) => _onSelectLimit(value),
+                      selectedColor: kAccentBlue,
+                      backgroundColor: kBlueContainer,
+                      labelStyle: TextStyle(
+                        color: selected ? Colors.white : Colors.black87,
+                        fontWeight:
+                        selected ? FontWeight.w600 : FontWeight.w400,
+                      ),
                     );
                   }),
                 ),
-                const SizedBox(height: 12),
-                Card(
-                  color: Colors.green.withOpacity(0.08),
-                  child: ListTile(
-                    leading: _rankBadge(myBackendPos),
-                    title: Text(myDisplayName, style: const TextStyle(fontWeight: FontWeight.w600)),
-                    subtitle: Text(mySubtitle),
-                    trailing: Text('$myBackendPoints XP',
-                        style: const TextStyle(fontWeight: FontWeight.bold)),
+              ),
+              const SizedBox(width: 8),
+              _MyPositionPill(
+                position: myGlobalPos,
+                enabled: meHasPoints,
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
+          // ==== Mensaje cuando no tiene puntos ====
+          if (!meHasPoints)
+            Card(
+              color: kLightBlue.withOpacity(0.2),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const ListTile(
+                leading: Icon(Icons.info_outline, color: kAccentBlue),
+                title: Text(
+                  'Aún no tienes puntos',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: kAccentBlue,
                   ),
                 ),
-                const SizedBox(height: 12),
-                Card(
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: users.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
-                    itemBuilder: (context, i) {
-                      final u = users[i];
-                      final position = i + 1;
-                      final isMe = _eqName(u.name, myDisplayName);
-                      return Container(
-                        color: isMe ? Colors.lightGreen.withOpacity(0.15) : null,
-                        child: ListTile(
-                          leading: _rankBadge(position),
-                          title: Text(u.name, overflow: TextOverflow.ellipsis),
-                          subtitle: isMe ? const Text('Eres tú') : null,
-                          trailing: Text('${u.points ?? 0} XP',
-                              style: const TextStyle(fontWeight: FontWeight.w600)),
-                        ),
-                      );
-                    },
-                  ),
+                subtitle: Text(
+                  'Completa tu primera lección para sumar XP y aparecer en el ranking.',
+                  style: TextStyle(color: Colors.black87),
                 ),
-              ],
+              ),
             ),
-          );
-        },
+
+          // ==== Lista visible (resalta mi fila) ====
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 250),
+            transitionBuilder: (child, anim) => FadeTransition(
+              opacity: anim,
+              child: SizeTransition(sizeFactor: anim, child: child),
+            ),
+            child: visible.isEmpty
+                ? Card(
+              key: const ValueKey('empty'),
+              color: kBlueContainer,
+              child: const Padding(
+                padding: EdgeInsets.all(16),
+                child: Text(
+                  'Aún no hay usuarios con puntos.\n¡Sé el primero en sumar XP!',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            )
+                : Card(
+              key: const ValueKey('list'),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              child: ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: visible.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (context, i) {
+                  final u = visible[i];
+                  final position = i + 1;
+                  final isMe = _eqName(u.name, myDisplayName);
+
+                  return AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeInOut,
+                    color: isMe
+                        ? kAccentBlue.withOpacity(0.1)
+                        : Colors.transparent,
+                    child: ListTile(
+                      leading: _rankBadge(position),
+                      title: Text(
+                        u.name,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontWeight:
+                          isMe ? FontWeight.w600 : FontWeight.w400,
+                          color: isMe ? kAccentBlue : Colors.black87,
+                        ),
+                      ),
+                      trailing: Text(
+                        '${u.points ?? 0} XP',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: isMe ? kAccentBlue : Colors.black87,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -159,7 +259,69 @@ class _RankingScreenState extends State<RankingScreen> {
     if (position <= 0) return const CircleAvatar(radius: 14, child: Text('—'));
     return CircleAvatar(
       radius: 14,
-      child: Text('$position', style: const TextStyle(fontWeight: FontWeight.w700)),
+      backgroundColor: kAccentBlue.withOpacity(0.15),
+      child: Text(
+        '$position',
+        style:
+        const TextStyle(fontWeight: FontWeight.w700, color: kAccentBlue),
+      ),
+    );
+  }
+}
+
+class _MyPositionPill extends StatelessWidget {
+  final int position;
+  final bool enabled;
+  const _MyPositionPill({
+    required this.position,
+    required this.enabled,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bool hasPosition = position > 0;
+    final String text =
+    hasPosition ? 'Top $position' : 'Sin puntos';
+    final IconData icon = hasPosition ? Icons.star_rounded : Icons.circle_outlined;
+
+    return Container(
+      constraints: const BoxConstraints(minHeight: 36),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: enabled ? kBlueContainer : Colors.black12,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: enabled ? kAccentBlue : Colors.black26,
+          width: 1.5,
+        ),
+        boxShadow: enabled
+            ? [
+          BoxShadow(
+            color: kAccentBlue.withOpacity(0.18),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ]
+            : null,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            color: hasPosition ? kAccentBlue : Colors.black38,
+            size: 18,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: TextStyle(
+              color: enabled ? kAccentBlue : Colors.black45,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
