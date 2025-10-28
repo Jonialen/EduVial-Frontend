@@ -121,19 +121,19 @@ class _SimulationViewState extends State<_SimulationView> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text("Simulaciones (${qc.index + 1}/${qc.questions.length})"),
+        title: Text("Simulaciones "),
         actions: [
           if (qc.userPoints != null)
             Center(
               child: Padding(
                 padding: const EdgeInsets.only(right: 12),
-                child: Text('Total: ${qc.userPoints}'),
+                
               ),
             ),
           Center(
             child: Padding(
               padding: const EdgeInsets.only(right: 12),
-              child: Text('Puntaje lección: ${qc.scoreLessonPoints}'),
+             ,
             ),
           ),
         ],
