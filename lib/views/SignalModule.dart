@@ -121,7 +121,7 @@ class _SignalModuleViewState extends State<_SignalModuleView> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text("Módulo de Señales (${qc.index + 1}/${qc.questions.length})"),
+        title: Text("Módulo de Señales "),
         actions: [
           if (qc.userPoints != null)
             Center(
