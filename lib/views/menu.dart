@@ -465,28 +465,33 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
                         // AVANZADOS
                         Column(
                           children: [
-                            const Text(
+                            Text(
                               'AVANZADOS',
                               style: TextStyle(
-                                color: Color(0xFF1976D2),
+                                color: canEnterAdvanced
+                                    ? const Color(0xFF1976D2)  // Azul normal si tiene puntos
+                                    : Colors.grey,              // Gris si no tiene 75 puntos
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
                               ),
                             ),
+
                             const SizedBox(height: 10),
                             CoinButton(
                               icon: Icons.menu_book,
                               size: 86,
-                              rimDark: const Color(0xFFB57A00),
-                              rimLight: const Color(0xFFFFE082),
-                              faceDark: const Color(0xFFF4C23A),
-                              faceLight: const Color(0xFFFFF3A0),
+                              // 👇 Cambia el color según si tiene suficientes puntos
+                              rimDark: canEnterAdvanced ? const Color(0xFFB57A00) : Colors.grey.shade600,
+                              rimLight: canEnterAdvanced ? const Color(0xFFFFE082) : Colors.grey.shade400,
+                              faceDark: canEnterAdvanced ? const Color(0xFFF4C23A) : Colors.grey.shade500,
+                              faceLight: canEnterAdvanced ? const Color(0xFFFFF3A0) : Colors.grey.shade300,
                               depth: 8.0,
                               onTap: () async {
                                 global_identifier.counter = 1;
-                                await _tryToggleAvanzadoSubmodulos(); // <-- valida puntos
+                                await _tryToggleAvanzadoSubmodulos(); // mantiene tu validación actual
                               },
                             ),
+
                             if (_showAvanzadoSubmodulos)
                               _buildSubmodulos('Avanzado'),
                           ],

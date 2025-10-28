@@ -127,13 +127,13 @@ class _SignalModuleViewState extends State<_SignalModuleView> {
             Center(
               child: Padding(
                 padding: const EdgeInsets.only(right: 12),
-                child: Text('Total: ${qc.userPoints}'),
+
               ),
             ),
           Center(
             child: Padding(
               padding: const EdgeInsets.only(right: 12),
-              child: Text('Puntaje lección: ${qc.scoreLessonPoints}'),
+
             ),
           ),
         ],
