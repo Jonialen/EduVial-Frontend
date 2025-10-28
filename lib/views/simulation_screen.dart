@@ -114,14 +114,14 @@ class _SimulationViewState extends State<_SimulationView> {
     final current = qc.current;
     if (current == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Simulaciones')),
+        appBar: AppBar(title: const Text('Modulo de Simulaciones')),
         body: const Center(child: Text('Sin preguntas')),
       );
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: Text("Simulaciones "),
+        title: Text("Modulo de Simulaciones "),
         actions: [
           if (qc.userPoints != null)
             Center(
