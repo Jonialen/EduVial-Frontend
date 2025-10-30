@@ -127,13 +127,13 @@ class _SimulationViewState extends State<_SimulationView> {
             Center(
               child: Padding(
                 padding: const EdgeInsets.only(right: 12),
-                
+
               ),
             ),
           Center(
             child: Padding(
               padding: const EdgeInsets.only(right: 12),
-             ,
+
             ),
           ),
         ],
