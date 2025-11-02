@@ -26,6 +26,12 @@ class ApiConstants {
   static const String _lawsFilterPath    = '/api/laws/filter';          // ?article=145
   static const String _lawsFiltersInfo   = '/api/laws/filters/info';    // info filtros (opcional)
 
+
+  // ===== Avatar (NUEVO) =====
+  static const String _avatarListPath = '/api/avatar';
+  static const String _myAvatarPath   = '/api/avatar/me';
+
+
   // ===== Endpoints directos (string) =====
   static const String loginEndpoint       = '$apiBaseUrl$_loginPath';
   static const String registerEndpoint    = '$apiBaseUrl$_registerPath';
@@ -34,6 +40,10 @@ class ApiConstants {
   static const String questEndpoint       = '$apiBaseUrl$_questPath';
   static const String rankingTopEndpoint  = '$apiBaseUrl$_rankingTopPath';
   static const String rankingMeEndpoint   = '$apiBaseUrl$_meRankingPath';
+
+  // Avatar (NUEVO)
+  static const String avatarListEndpoint = '$apiBaseUrl$_avatarListPath';
+  static const String myAvatarEndpoint   = '$apiBaseUrl$_myAvatarPath';
 
   // Leyes
   static const String lawsEndpoint        = '$apiBaseUrl$_lawsPath';

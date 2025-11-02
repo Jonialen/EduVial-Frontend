@@ -1,12 +1,17 @@
+// lib/views/Menu.dart
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+
 import 'package:eduvial/views/SignalModule.dart';
 import 'package:eduvial/views/simulation_screen.dart';
 import 'package:eduvial/views/UserProfile.dart';
 import 'package:eduvial/controllers/global_identifier.dart';
 import 'package:eduvial/views/scenario_module.dart';
-import 'package:eduvial/controllers/auth_controller.dart'; // <-- puntos
+import 'package:eduvial/controllers/auth_controller.dart'; // puntos + token
+import 'package:eduvial/config/constants.dart';           // endpoints avatar
 
 import '../widgets/coin_button.dart'; //  CoinButton
 import 'package:eduvial/utils/page_transitions.dart';
@@ -45,6 +50,10 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
   int? _expandedIdxPrincipiante;
   int? _expandedIdxAvanzado;
 
+  // --- NUEVO: avatar en el header ---
+  String? _avatarUrl;      // absoluta (puede ser null)
+  bool _loadingAvatar = false;
+
   @override
   void initState() {
     super.initState();
@@ -71,10 +80,70 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
       }
     });
 
-    // cargar puntos
+    // cargar puntos + avatar
     _loadPoints();
+    _loadAvatar();
   }
 
+  // ---------- Helpers ----------
+  String _proxify(String url) {
+    final withoutScheme = url.replaceFirst(RegExp(r'^https?://'), '');
+    return 'https://images.weserv.nl/?url=${Uri.encodeComponent(withoutScheme)}';
+  }
+
+  Future<Map<String, String>> _hdr({bool json = false}) async {
+    final token = await auth_controller.loadToken();
+    return {
+      if (json) 'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+    };
+  }
+
+  // ---------- Avatar ----------
+  Future<void> _loadAvatar() async {
+    setState(() => _loadingAvatar = true);
+    try {
+      final r = await http.get(
+        Uri.parse(ApiConstants.myAvatarEndpoint),
+        headers: await _hdr(),
+      );
+
+      if (r.statusCode == 404) {
+        // sin avatar aún
+        if (mounted) setState(() => _avatarUrl = null);
+        return;
+      }
+
+      if (r.statusCode >= 200 && r.statusCode < 300) {
+        final body = jsonDecode(r.body);
+        String? raw;
+        if (body is Map && body['avatarUrl'] is String) raw = body['avatarUrl'];
+        if (raw == null && body is Map && body['url'] is String) raw = body['url'];
+        if (raw == null &&
+            body is Map &&
+            body['data'] is Map &&
+            body['data']['url'] is String) {
+          raw = body['data']['url'];
+        }
+
+        if (mounted) {
+          setState(() {
+            _avatarUrl = (raw == null)
+                ? null
+                : (raw.startsWith('http') ? raw : '${ApiConstants.apiBaseUrl}$raw');
+          });
+        }
+      }
+      // otros códigos: ignorar y dejar null (no rompemos UI)
+    } catch (_) {
+      // network/CORS en web: ignora
+    } finally {
+      if (mounted) setState(() => _loadingAvatar = false);
+    }
+  }
+
+  // ---------- Puntos ----------
   Future<void> _loadPoints() async {
     setState(() => _loadingPoints = true);
 
@@ -165,7 +234,7 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
     });
   }
 
-  // --- NUEVO: manejar tap sobre un submódulo para desplegar 5/10/15 ---
+  // --- manejar tap sobre un submódulo para desplegar 5/10/15 ---
   void _onTapSubmodulo({
     required bool isAvanzado,
     required int index,
@@ -181,7 +250,7 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
     });
   }
 
-  // --- NUEVO: navegar con el número de preguntas seleccionado ---
+  // --- navegar con el número de preguntas seleccionado ---
   void _startModulo({
     required String nombre,
     required String nivelUI, // 'Principiante' | 'Avanzado'
@@ -207,7 +276,6 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
         );
         break;
       default:
-      // fallback: no debería pasar
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Abrir $nombre ($preguntas preguntas) — $nivelLower')),
         );
@@ -263,7 +331,7 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
 
             return Column(
               children: [
-                // TUS CoinButton: no cambia, solo su onTap
+                // TUS CoinButton
                 CoinButton(
                   icon: m['icono'],
                   size: 78,
@@ -283,7 +351,7 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
                   ),
                 ),
 
-                // --- NUEVO: señales 5 / 10 / 15 debajo del botón al tocarlo ---
+                // 5 / 10 / 15 debajo del botón al tocarlo
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 200),
                   child: expanded
@@ -346,7 +414,7 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
                           ),
                         ),
 
-                        // --- chip de puntos + refresh + perfil ---
+                        // --- chip de puntos + refresh + perfil (con avatar) ---
                         Row(
                           children: [
                             Container(
@@ -385,25 +453,52 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
                               onPressed: _loadingPoints ? null : _loadPoints,
                             ),
                             const SizedBox(width: 4),
+
+                            // --- Botón Perfil con avatar (círculo) ---
                             Container(
-                              padding: const EdgeInsets.all(8),
+                              padding: const EdgeInsets.all(4),
                               decoration: BoxDecoration(
                                 color: const Color(0xFF1565C0),
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(999),
                               ),
-                              child: IconButton(
-                                icon: const Icon(Icons.person, color: Colors.white),
-                                onPressed: () async {
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(999),
+                                onTap: () async {
                                   final res = await requireAuthOrAlert(
                                     context,
                                     featureName: 'Perfil',
                                     onGoLogin: () => Navigator.of(context).pushNamed('/login'),
                                   );
                                   if (res != AuthPromptResult.proceed) return;
-                                  Navigator.of(context).push(
+
+                                  // Navega al perfil, y al volver refresca avatar (por si lo cambió)
+                                  await Navigator.of(context).push(
                                     fadeRoute(const ProfileScreen()),
                                   );
+                                  if (mounted) _loadAvatar();
                                 },
+                                child: Padding(
+                                  padding: const EdgeInsets.all(2.0),
+                                  child: _loadingAvatar
+                                      ? const SizedBox(
+                                    width: 32,
+                                    height: 32,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                      : CircleAvatar(
+                                    radius: 16,
+                                    backgroundColor: Colors.white,
+                                    backgroundImage: (_avatarUrl != null)
+                                        ? NetworkImage(_proxify(_avatarUrl!))
+                                        : null,
+                                    child: (_avatarUrl == null)
+                                        ? const Icon(Icons.person, size: 18, color: Color(0xFF1976D2))
+                                        : null,
+                                  ),
+                                ),
                               ),
                             ),
                           ],
@@ -469,18 +564,16 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
                               'AVANZADOS',
                               style: TextStyle(
                                 color: canEnterAdvanced
-                                    ? const Color(0xFF1976D2)  // Azul normal si tiene puntos
-                                    : Colors.grey,              // Gris si no tiene 75 puntos
+                                    ? const Color(0xFF1976D2)
+                                    : Colors.grey,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
                               ),
                             ),
-
                             const SizedBox(height: 10),
                             CoinButton(
                               icon: Icons.menu_book,
                               size: 86,
-                              // 👇 Cambia el color según si tiene suficientes puntos
                               rimDark: canEnterAdvanced ? const Color(0xFFB57A00) : Colors.grey.shade600,
                               rimLight: canEnterAdvanced ? const Color(0xFFFFE082) : Colors.grey.shade400,
                               faceDark: canEnterAdvanced ? const Color(0xFFF4C23A) : Colors.grey.shade500,
@@ -488,10 +581,9 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
                               depth: 8.0,
                               onTap: () async {
                                 global_identifier.counter = 1;
-                                await _tryToggleAvanzadoSubmodulos(); // mantiene tu validación actual
+                                await _tryToggleAvanzadoSubmodulos();
                               },
                             ),
-
                             if (_showAvanzadoSubmodulos)
                               _buildSubmodulos('Avanzado'),
                           ],
