@@ -32,7 +32,7 @@ class StreakRankItem {
   final int currentStreak;
   final bool isExpert;
 
-  // 👇 Por si tu backend en el futuro devuelve también el máximo por usuario en ranking
+
   final int? maxStreak;
 
   StreakRankItem({
