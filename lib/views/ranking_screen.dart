@@ -1,4 +1,3 @@
-// lib/views/ranking_screen.dart
 import 'package:flutter/material.dart';
 import '../services/ranking_service.dart';
 import '../models/user.dart';
@@ -16,6 +15,10 @@ import 'package:eduvial/controllers/auth_controller.dart' as auth;
 // Footer del trofeo brillante (SIN mascota)
 import 'package:eduvial/widgets/ranking_trophy_footer.dart';
 
+// 🔥 Nuevo: servicios de racha
+import 'package:eduvial/services/streak_service.dart';
+import 'package:eduvial/models/streak.dart';
+
 const Color kAccentBlue = Color(0xFF3C8CE7);
 const Color kLightBlue = Color(0xFF89CFF0);
 const Color kBlueContainer = Color(0xFFD9ECFF);
@@ -30,7 +33,6 @@ class RankingScreen extends StatefulWidget {
 }
 
 class _RankingScreenState extends State<RankingScreen> {
-  // Filtros: Todos, Top 10, Top 3
   static const List<int?> filters = [null, 10, 3];
   static const List<String> labels = ['Todos', 'Top 10', 'Top 3'];
   static const List<IconData?> icons = [
@@ -48,15 +50,10 @@ class _RankingScreenState extends State<RankingScreen> {
     super.initState();
     futureData = _loadData();
 
-    // Bienvenida SOLO la primera vez por usuario (persistente)
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      // Invitado no usa ranking (por si acaso)
       if (widget.me.role.toLowerCase() == 'invitado') return;
 
-      // Usa email como ID persistente
       String userId = widget.me.email.trim().toLowerCase();
-
-      // Si viene vacío, intenta recuperarlo del backend
       if (userId.isEmpty) {
         try {
           final me = await auth.auth_controller.getMeBasic();
@@ -83,13 +80,35 @@ class _RankingScreenState extends State<RankingScreen> {
   }
 
   Future<_RankingData> _loadData() async {
-    final topF = service.fetchTop(limit: selectedLimit);
-    final meF = service.fetchMyRanking();
-    final top = await topF;
-    final me = await meF;
+    final topF    = service.fetchTop(limit: selectedLimit);
+    final meF     = service.fetchMyRanking();
+    final streakF = StreakService.getRanking(limit: selectedLimit);
+
+    final top        = await topF;
+    final me         = await meF;
+    final streakList = await streakF;
+
     top.sort((a, b) => (b.points ?? 0).compareTo(a.points ?? 0));
-    return _RankingData(top: top, me: me);
+
+    // name(lower) -> streak normalizada (>=0 y <= max si viene)
+    final Map<String, int> streakByName = {};
+    for (final s in streakList) {
+      var value = s.currentStreak;          // ya viene normalizado por el modelo
+      if (s.maxStreak != null) {
+        value = value.clamp(0, s.maxStreak!) as int;
+      } else {
+        if (value < 0) value = 0;           // por si acaso
+      }
+
+      final key  = s.name.trim().toLowerCase();
+      final prev = streakByName[key] ?? 0;
+      // conserva la mayor racha que tengamos para ese nombre
+      if (value > prev) streakByName[key] = value;
+    }
+
+    return _RankingData(top: top, me: me, streakByName: streakByName);
   }
+
 
   void _onSelectLimit(int? limit) {
     setState(() {
@@ -101,6 +120,40 @@ class _RankingScreenState extends State<RankingScreen> {
   bool _eqName(String a, String b) {
     String n(String s) => s.toLowerCase().trim();
     return n(a) == n(b);
+  }
+
+  int? _streakForUser(String name, Map<String, int> map) {
+    final key = name.trim().toLowerCase();
+    return map[key];
+  }
+
+  Widget _streakPill(int streak, {bool highlight = false}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: highlight ? kAccentBlue.withOpacity(0.15) : kBlueContainer,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: highlight ? kAccentBlue : kAccentBlue.withOpacity(0.6),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.local_fire_department,
+              size: 16, color: Colors.orange),
+          const SizedBox(width: 4),
+          Text(
+            '$streak',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              color: highlight ? kAccentBlue : Colors.black87,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -131,8 +184,6 @@ class _RankingScreenState extends State<RankingScreen> {
 
     final data = snap.data!;
     final allUsers = data.top;
-
-    // Lista visible (solo >0 puntos) según filtro
     final ranked = allUsers.where((u) => (u.points ?? 0) > 0).toList();
     final int listLimit = selectedLimit ?? ranked.length;
     final List<User> visible = ranked.take(listLimit).toList();
@@ -140,12 +191,9 @@ class _RankingScreenState extends State<RankingScreen> {
     final String myDisplayName = data.me?.name ?? widget.me.name;
     final int myBackendPoints = data.me?.points ?? 0;
     final bool meHasPoints = myBackendPoints > 0;
-
-    // Usa SIEMPRE la posición global del backend
     final int myGlobalPos =
     (data.me?.position ?? 0) > 0 && meHasPoints ? (data.me!.position!) : 0;
 
-    // ===== Layout: lista scrollable + footer fijo con trofeo =====
     return Column(
       children: [
         Expanded(
@@ -157,7 +205,6 @@ class _RankingScreenState extends State<RankingScreen> {
             child: ListView(
               padding: const EdgeInsets.all(12),
               children: [
-                // ==== Filtros (izquierda) + Mi posición (derecha) ====
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -181,8 +228,9 @@ class _RankingScreenState extends State<RankingScreen> {
                             backgroundColor: kBlueContainer,
                             labelStyle: TextStyle(
                               color: selected ? Colors.white : Colors.black87,
-                              fontWeight:
-                              selected ? FontWeight.w600 : FontWeight.w400,
+                              fontWeight: selected
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
                             ),
                           );
                         }),
@@ -195,10 +243,7 @@ class _RankingScreenState extends State<RankingScreen> {
                     ),
                   ],
                 ),
-
                 const SizedBox(height: 12),
-
-                // ==== Mensaje cuando no tiene puntos ====
                 if (!meHasPoints)
                   Card(
                     color: kLightBlue.withOpacity(0.2),
@@ -221,8 +266,6 @@ class _RankingScreenState extends State<RankingScreen> {
                       ),
                     ),
                   ),
-
-                // ==== Lista visible (resalta mi fila) ====
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 250),
                   transitionBuilder: (child, anim) => FadeTransition(
@@ -257,6 +300,8 @@ class _RankingScreenState extends State<RankingScreen> {
                         final u = visible[i];
                         final position = i + 1;
                         final isMe = _eqName(u.name, myDisplayName);
+                        final streak =
+                        _streakForUser(u.name, data.streakByName);
 
                         return AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
@@ -278,14 +323,22 @@ class _RankingScreenState extends State<RankingScreen> {
                                     : Colors.black87,
                               ),
                             ),
-                            trailing: Text(
-                              '${u.points ?? 0} XP',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: isMe
-                                    ? kAccentBlue
-                                    : Colors.black87,
-                              ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  '${u.points ?? 0} XP',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: isMe
+                                        ? kAccentBlue
+                                        : Colors.black87,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                if (streak != null)
+                                  _streakPill(streak, highlight: isMe),
+                              ],
                             ),
                           ),
                         );
@@ -297,11 +350,7 @@ class _RankingScreenState extends State<RankingScreen> {
             ),
           ),
         ),
-
-        // ===== Footer fijo: TROFEO BRILLANTE (sin superponerse) =====
         const RankingTrophyFooter(),
-        // Si quieres mostrarlo solo si hay usuarios con puntos:
-        // if (visible.isNotEmpty) const RankingTrophyFooter(),
       ],
     );
   }
@@ -326,10 +375,7 @@ class _RankingScreenState extends State<RankingScreen> {
 class _MyPositionPill extends StatelessWidget {
   final int position;
   final bool enabled;
-  const _MyPositionPill({
-    required this.position,
-    required this.enabled,
-  });
+  const _MyPositionPill({required this.position, required this.enabled});
 
   @override
   Widget build(BuildContext context) {
@@ -383,5 +429,6 @@ class _MyPositionPill extends StatelessWidget {
 class _RankingData {
   final List<User> top;
   final MeRanking? me;
-  _RankingData({required this.top, required this.me});
+  final Map<String, int> streakByName;
+  _RankingData({required this.top, required this.me, required this.streakByName});
 }

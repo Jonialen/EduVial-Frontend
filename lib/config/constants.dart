@@ -1,38 +1,40 @@
 // lib/config/constants.dart
 class ApiConstants {
-  // Base (ajústala si cambias de entorno)
+  // ===== BASE =====
   static const String apiBaseUrl = 'https://dev.eduvial.space';
 
-  // ===== Paths =====
-  // Auth
+  // ===== AUTH =====
   static const String _loginPath     = '/api/auth/login';
   static const String _registerPath  = '/api/auth/register';
   static const String _meBasicPath   = '/api/user/me/basic';
 
-  // Puntos / perfil
+  // ===== PERFIL / PUNTOS =====
   static const String _pointsPath    = '/api/score/me/score';
 
-  // Preguntas
+  // ===== PREGUNTAS =====
   static const String _questPath     = '/api/quest';
 
-  // Ranking
+  // ===== RANKING GENERAL =====
   static const String _rankingTopPath = '/api/ranking/top';
   static const String _meRankingPath  = '/api/ranking/me/ranking';
 
   // ===== LEYES =====
-  static const String _lawsPath          = '/api/laws';                 // GET todas
-  static const String _lawsCatsPath      = '/api/laws/categories';      // GET categorías
-  static const String _lawsByCatPath     = '/api/laws/category';        // + /{name}
-  static const String _lawsFilterPath    = '/api/laws/filter';          // ?article=145
-  static const String _lawsFiltersInfo   = '/api/laws/filters/info';    // info filtros (opcional)
+  static const String _lawsPath          = '/api/laws';
+  static const String _lawsCatsPath      = '/api/laws/categories';
+  static const String _lawsByCatPath     = '/api/laws/category';
+  static const String _lawsFilterPath    = '/api/laws/filter';
+  static const String _lawsFiltersInfo   = '/api/laws/filters/info';
 
-
-  // ===== Avatar (NUEVO) =====
+  // ===== AVATAR =====
   static const String _avatarListPath = '/api/avatar';
   static const String _myAvatarPath   = '/api/avatar/me';
 
+  // ===== RACHA (STREAK) =====
+  static const String _streakPath       = '/api/streak';
+  static const String _streakBumpPath   = '/api/streak/bump';
+  static const String _streakRankingPath = '/api/streak/ranking';
 
-  // ===== Endpoints directos (string) =====
+  // ===== ENDPOINTS COMPLETOS =====
   static const String loginEndpoint       = '$apiBaseUrl$_loginPath';
   static const String registerEndpoint    = '$apiBaseUrl$_registerPath';
   static const String meBasicEndpoint     = '$apiBaseUrl$_meBasicPath';
@@ -41,9 +43,9 @@ class ApiConstants {
   static const String rankingTopEndpoint  = '$apiBaseUrl$_rankingTopPath';
   static const String rankingMeEndpoint   = '$apiBaseUrl$_meRankingPath';
 
-  // Avatar (NUEVO)
-  static const String avatarListEndpoint = '$apiBaseUrl$_avatarListPath';
-  static const String myAvatarEndpoint   = '$apiBaseUrl$_myAvatarPath';
+  // Avatar
+  static const String avatarListEndpoint  = '$apiBaseUrl$_avatarListPath';
+  static const String myAvatarEndpoint    = '$apiBaseUrl$_myAvatarPath';
 
   // Leyes
   static const String lawsEndpoint        = '$apiBaseUrl$_lawsPath';
@@ -51,19 +53,24 @@ class ApiConstants {
   static Uri lawsByCategory(String category) =>
       Uri.parse('$apiBaseUrl$_lawsByCatPath/${Uri.encodeComponent(category)}');
   static Uri lawsFilterByArticle({required String article}) =>
-      Uri.parse('$apiBaseUrl$_lawsFilterPath').replace(queryParameters: {'article': article});
+      Uri.parse('$apiBaseUrl$_lawsFilterPath')
+          .replace(queryParameters: {'article': article});
   static const String lawsFiltersInfoEndpoint = '$apiBaseUrl$_lawsFiltersInfo';
 
-  // ===== Helpers Uri =====
+  // Racha (Streak)
+  static const String streakBase      = '$apiBaseUrl$_streakPath';
+  static const String streakMe        = '$apiBaseUrl$_streakPath';
+  static const String streakBump      = '$apiBaseUrl$_streakBumpPath';
+  static const String streakRanking   = '$apiBaseUrl$_streakRankingPath';
+
+  // ===== HELPERS =====
   static Uri rankingTop({int? limit}) {
     final uri = Uri.parse('$apiBaseUrl$_rankingTopPath');
-    return uri.replace(queryParameters: { if (limit != null) 'limit': '$limit' });
+    return uri.replace(queryParameters: {if (limit != null) 'limit': '$limit'});
   }
 
   static Uri meRanking() => Uri.parse('$apiBaseUrl$_meRankingPath');
 
-  // (Opcional) Header con auth si ya tienes un helper de JWT en tu auth_controller.
-  // Deja esto como stub o impleméntalo según tu app.
   static Map<String, String> authHeader([String? token]) => {
     'Content-Type': 'application/json',
     if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',

@@ -10,6 +10,8 @@ import 'package:eduvial/config/constants.dart';
 import 'package:eduvial/controllers/auth_controller.dart' as authc;
 import 'package:eduvial/utils/page_transitions.dart';
 import 'package:eduvial/views/login.dart';
+import 'package:eduvial/widgets/profile_streak_card.dart';
+
 
 /// =====================
 /// MODELO LOCAL (Avatar)
@@ -387,6 +389,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       subtitle:
                       Text(puntos, style: const TextStyle(fontSize: 16)),
                     ),
+                    const SizedBox(height: 8),
+                    ProfileStreakCard(), // <-- tu widget importado desde widgets/profile_streak_card.dart
                     const SizedBox(height: 16),
                     ElevatedButton.icon(
                       onPressed: _confirmAndLogout,

@@ -29,8 +29,8 @@ class QuestionController extends ChangeNotifier {
 
   int _index = 0;
   int _scoreLesson = 0;
-  int _answeredCount = 0; // 👈 preguntas respondidas (sin importar si son correctas)
-  int _wrongCount = 0; // 👈 cantidad de fallos
+  int _answeredCount = 0; // preguntas respondidas (sin importar si son correctas)
+  int _wrongCount = 0;    // cantidad de fallos
   int? _userPoints;
   bool _busy = false;
 
@@ -48,13 +48,13 @@ class QuestionController extends ChangeNotifier {
   int get answered => _answeredCount;
   int get wrongs => _wrongCount;
 
-  /// ✅ La lección termina cuando se han respondido todas las preguntas
+  /// La lección termina cuando se han respondido todas las preguntas
   bool get isFinished => _answeredCount >= total;
 
-  /// 🔵 Progreso visual (basado en respondidas, no correctas)
+  /// Progreso visual (basado en respondidas, no correctas)
   double get progress => (total == 0) ? 0 : (_answeredCount / total);
 
-  /// 🔵 Color dinámico según los errores
+  /// Color dinámico según los errores
   Color get progressColor {
     if (_wrongCount == 0) return Colors.greenAccent;
     if (_wrongCount == 1) return Colors.yellow.shade600;
@@ -103,7 +103,7 @@ class QuestionController extends ChangeNotifier {
         .map((j) => Pregunta.fromJson(j))
         .toList();
 
-    // 📊 --- Log de conteos por categoría y nivel ---
+    // 📊 Log de conteos por categoría y nivel
     final Map<String, Map<String, int>> conteos = {};
     for (final p in todas) {
       conteos.putIfAbsent(p.cat, () => {});
@@ -146,7 +146,6 @@ class QuestionController extends ChangeNotifier {
             '🟢 Módulo listo → cat="$category", lvl="$level"');
   }
 
-
   Future<void> _loadOptions(int questionId) async {
     _busy = true;
     notifyListeners();
@@ -187,7 +186,7 @@ class QuestionController extends ChangeNotifier {
     _answerShown = true;
     final correct = _options[_selectedIndex!].correct ?? false;
 
-    _answeredCount++; // 🔵 aumenta aunque falle
+    _answeredCount++; // aumenta aunque falle
     if (correct) {
       _scoreLesson++;
     } else {
@@ -215,6 +214,7 @@ class QuestionController extends ChangeNotifier {
     }
   }
 
+  /// Termina la lección y sincroniza puntos (SIN tocar racha: backend la maneja en login)
   Future<int?> finishAndSync() async {
     final base = _userPoints ?? 0;
     final total = base + scoreLessonPoints;
@@ -228,8 +228,10 @@ class QuestionController extends ChangeNotifier {
     return null;
   }
 
-  Future<int?> finishAndSyncGuarded(BuildContext context,
-      {VoidCallback? onGoLogin}) async {
+  Future<int?> finishAndSyncGuarded(
+      BuildContext context, {
+        VoidCallback? onGoLogin,
+      }) async {
     final res = await requireAuthOrAlert(
       context,
       featureName: 'Sumar puntos por lección',
