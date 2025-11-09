@@ -13,76 +13,52 @@ import 'package:eduvial/views/scenario_module.dart';
 import 'package:eduvial/controllers/auth_controller.dart'; // puntos + token
 import 'package:eduvial/config/constants.dart';           // endpoints avatar
 
-import '../widgets/coin_button.dart'; //  CoinButton
 import 'package:eduvial/utils/page_transitions.dart';
 import 'package:eduvial/services/guest_helper.dart'; // requireAuthOrAlert
 import 'package:eduvial/widgets/mascot/traffic_cone_mascot.dart' hide MascotState;
 import 'package:eduvial/widgets/mascot/traffic_mascot.dart';
+import 'package:eduvial/widgets/road_module_path_view.dart';
 
 class Menu extends StatefulWidget {
   const Menu({super.key});
-
   @override
   State<Menu> createState() => _MenuState();
 }
 
-class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
-  bool _showPrincipianteSubmodulos = false;
-  bool _showAvanzadoSubmodulos = false;
-  late AnimationController _animationController;
-  late Animation<double> _animation;
-
-  // Mascota
+class _MenuState extends State<Menu> {
   MascotState _mascotState = MascotState.idle;
   late Timer _mascotTimer;
-  final List<MascotState> _animatedStates = [
-    MascotState.waving,
-    MascotState.pointing,
-    MascotState.celebrating,
-    MascotState.alert,
-  ];
 
-  // --- Puntos / loading ---
-  int? _points;          // null = aún no cargados
+  int? _points;
   bool _loadingPoints = false;
 
-  // --- NUEVO: índice expandido por grupo para mostrar 5/10/15 ---
-  int? _expandedIdxPrincipiante;
-  int? _expandedIdxAvanzado;
-
-  // --- NUEVO: avatar en el header ---
-  String? _avatarUrl;      // absoluta (puede ser null)
+  String? _avatarUrl;
   bool _loadingAvatar = false;
 
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 300),
-    );
-    _animation = CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeOut,
-    );
 
-    // Animaciones automáticas cada 5 s
     _mascotTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (mounted) {
-        setState(() {
-          _mascotState = (_animatedStates.toList()..shuffle()).first;
-        });
-        Future.delayed(const Duration(seconds: 2), () {
-          if (mounted) {
-            setState(() => _mascotState = MascotState.idle);
-          }
-        });
-      }
+      if (!mounted) return;
+      setState(() {
+        _mascotState = MascotState.values[
+        (MascotState.values.indexOf(_mascotState) + 1) % MascotState.values.length
+        ];
+      });
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) setState(() => _mascotState = MascotState.idle);
+      });
     });
 
-    // cargar puntos + avatar
     _loadPoints();
     _loadAvatar();
+  }
+
+  @override
+  void dispose() {
+    _mascotTimer.cancel();
+    super.dispose();
   }
 
   // ---------- Helpers ----------
@@ -110,12 +86,8 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
       );
 
       if (r.statusCode == 404) {
-        // sin avatar aún
         if (mounted) setState(() => _avatarUrl = null);
-        return;
-      }
-
-      if (r.statusCode >= 200 && r.statusCode < 300) {
+      } else if (r.statusCode >= 200 && r.statusCode < 300) {
         final body = jsonDecode(r.body);
         String? raw;
         if (body is Map && body['avatarUrl'] is String) raw = body['avatarUrl'];
@@ -135,9 +107,8 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
           });
         }
       }
-      // otros códigos: ignorar y dejar null (no rompemos UI)
     } catch (_) {
-      // network/CORS en web: ignora
+      // ignore
     } finally {
       if (mounted) setState(() => _loadingAvatar = false);
     }
@@ -148,19 +119,18 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
     setState(() => _loadingPoints = true);
 
     try {
-      // 1) Cache rápido
+      // cache rápida
       final raw = await auth_controller.loadCachedUserJson();
       if (raw != null) {
         try {
           final map = jsonDecode(raw) as Map<String, dynamic>;
           if (map['points'] is int && mounted) {
-            _points = map['points'] as int;
-            setState(() {}); // pinta provisional
+            setState(() => _points = map['points'] as int);
           }
         } catch (_) {}
       }
 
-      // 2) Refrescar desde backend
+      // refresh backend
       final me = await auth_controller.getMeBasic();
       if (me['success'] == true && me['user'] != null) {
         final u = me['user'] as Map<String, dynamic>;
@@ -177,86 +147,40 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
     }
   }
 
-  @override
-  void dispose() {
-    _animationController.dispose();
-    _mascotTimer.cancel();
-    super.dispose();
-  }
-
-  void _togglePrincipianteSubmodulos() {
-    setState(() {
-      _showPrincipianteSubmodulos = !_showPrincipianteSubmodulos;
-      _showAvanzadoSubmodulos = false;
-      _expandedIdxPrincipiante = null; // reset mini-señales
-      _mascotState = MascotState.pointing;
-
-      if (_showPrincipianteSubmodulos) {
-        _animationController.forward();
-      } else {
-        _animationController.reverse();
-        _mascotState = MascotState.idle;
-      }
-    });
-  }
-
-  Future<void> _tryToggleAvanzadoSubmodulos() async {
-    if (_points == null && !_loadingPoints) {
-      await _loadPoints();
-    }
-
+  // ---------- Alerta para avanzados bloqueados ----------
+  Future<void> _denyAdvanced() async {
     final pts = _points ?? 0;
-    if (pts < 75) {
-      setState(() => _mascotState = MascotState.alert);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Necesitas al menos 75 puntos para acceder a los módulos avanzados.'),
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) => AlertDialog(
+        title: Row(
+          children: const [
+            Icon(Icons.lock_rounded, color: Colors.redAccent),
+            SizedBox(width: 8),
+            Text('Módulo avanzado bloqueado'),
+          ],
         ),
-      );
-      Future.delayed(const Duration(seconds: 2), () {
-        if (mounted) setState(() => _mascotState = MascotState.idle);
-      });
-      return;
-    }
-
-    setState(() {
-      _showAvanzadoSubmodulos = !_showAvanzadoSubmodulos;
-      _showPrincipianteSubmodulos = false;
-      _expandedIdxAvanzado = null; // reset mini-señales
-      _mascotState = MascotState.pointing;
-
-      if (_showAvanzadoSubmodulos) {
-        _animationController.forward();
-      } else {
-        _animationController.reverse();
-        _mascotState = MascotState.idle;
-      }
-    });
+        content: Text(
+          'Necesitas al menos 75 puntos para acceder a los módulos avanzados.\n'
+              'Puntos actuales: $pts',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Entendido'),
+          ),
+        ],
+      ),
+    );
   }
 
-  // --- manejar tap sobre un submódulo para desplegar 5/10/15 ---
-  void _onTapSubmodulo({
-    required bool isAvanzado,
-    required int index,
-  }) {
-    setState(() {
-      if (isAvanzado) {
-        _expandedIdxAvanzado = (_expandedIdxAvanzado == index) ? null : index;
-        _expandedIdxPrincipiante = null;
-      } else {
-        _expandedIdxPrincipiante = (_expandedIdxPrincipiante == index) ? null : index;
-        _expandedIdxAvanzado = null;
-      }
-    });
-  }
-
-  // --- navegar con el número de preguntas seleccionado ---
+  // ---------- Navegación por módulo ----------
   void _startModulo({
     required String nombre,
     required String nivelUI, // 'Principiante' | 'Avanzado'
     required int preguntas,  // 5 | 10 | 15
   }) {
-    final nivelLower = nivelUI.toLowerCase();
     global_identifier.counter = (nivelUI == 'Principiante') ? 0 : 1;
 
     switch (nombre) {
@@ -277,111 +201,193 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
         break;
       default:
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Abrir $nombre ($preguntas preguntas) — $nivelLower')),
+          SnackBar(content: Text('Abrir $nombre ($preguntas preguntas) — ${nivelUI.toLowerCase()}')),
         );
     }
   }
 
-  // Construye el bloque de submódulos manteniendo TUS CoinButton
-  Widget _buildSubmodulos(String nivel) {
-    final bool isAvanzado = (nivel == 'Avanzado');
-
-    final List<Map<String, dynamic>> submodulos = [
-      {
-        'nombre': 'Simulaciones',
-        'icono': Icons.videogame_asset,
-        'rimDark': const Color(0xFFB23A2E),
-        'rimLight': const Color(0xFFFF9E80),
-        'faceDark': const Color(0xFFE53935),
-        'faceLight': const Color(0xFFFF8A80),
-        'depth': 6.0,
-      },
-      {
-        'nombre': 'Señales',
-        'icono': Icons.traffic,
-        'rimDark': const Color(0xFFCC7A00),
-        'rimLight': const Color(0xFFFFD180),
-        'faceDark': const Color(0xFFFF9800),
-        'faceLight': const Color(0xFFFFE0B2),
-        'depth': 6.0,
-      },
-      {
-        'nombre': 'Escenarios',
-        'icono': Icons.landscape,
-        'rimDark': const Color(0xFF2E7D32),
-        'rimLight': const Color(0xFFA5D6A7),
-        'faceDark': const Color(0xFF2DBD3A),
-        'faceLight': const Color(0xFF6CD93B),
-        'depth': 6.0,
-      },
-    ];
-
-    return FadeTransition(
-      opacity: _animation,
-      child: Container(
-        margin: const EdgeInsets.only(top: 20),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: submodulos.asMap().entries.map((entry) {
-            final int idx = entry.key;
-            final m = entry.value;
-            final bool expanded = isAvanzado
-                ? (_expandedIdxAvanzado == idx)
-                : (_expandedIdxPrincipiante == idx);
-
-            return Column(
+  Future<void> _pickQuestionsAndStart({
+    required String nombre,
+    required String nivelUI,
+    required RoadModuleStyle style, // para colorear 5/10/15 según módulo
+  }) async {
+    final preguntas = await showDialog<int>(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) {
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                // TUS CoinButton
-                CoinButton(
-                  icon: m['icono'],
-                  size: 78,
-                  rimDark: m['rimDark'],
-                  rimLight: m['rimLight'],
-                  faceDark: m['faceDark'],
-                  faceLight: m['faceLight'],
-                  depth: m['depth'],
-                  onTap: () => _onTapSubmodulo(isAvanzado: isAvanzado, index: idx),
-                ),
-                const SizedBox(height: 8),
                 Text(
-                  m['nombre'],
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+                  'Elige cuántas preguntas',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: const Color(0xFF1976D2),
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-
-                // 5 / 10 / 15 debajo del botón al tocarlo
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 200),
-                  child: expanded
-                      ? Padding(
-                    padding: const EdgeInsets.only(top: 10),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [5, 10, 15].map((q) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 6),
-                          child: _TrafficCircleSign(
-                            text: '$q',
-                            onTap: () => _startModulo(
-                              nombre: m['nombre'] as String,
-                              nivelUI: nivel,
-                              preguntas: q,
-                            ),
-                          ),
-                        );
-                      }).toList(),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [5, 10, 15].map((q) => Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: _TrafficCircleSign(
+                      text: '$q',
+                      borderColor: style.ring,
+                      onTap: () => Navigator.pop(context, q),
                     ),
-                  )
-                      : const SizedBox.shrink(),
+                  )).toList(),
                 ),
+                const SizedBox(height: 12),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancelar'),
+                )
               ],
-            );
-          }).toList(),
+            ),
+          ),
+        );
+      },
+    );
+
+    if (preguntas != null) {
+      _startModulo(nombre: nombre, nivelUI: nivelUI, preguntas: preguntas);
+    }
+  }
+
+  // ---------- Estilos originales de módulos ----------
+  static const _simRimDark = Color(0xFFB23A2E);
+  static const _simFaceDark = Color(0xFFE53935);
+  static const _simFaceLight = Color(0xFFFF8A80);
+
+  static const _senRimDark = Color(0xFFCC7A00);
+  static const _senFaceDark = Color(0xFFFF9800);
+  static const _senFaceLight = Color(0xFFFFE0B2);
+
+  static const _escRimDark = Color(0xFF2E7D32);
+  static const _escFaceDark = Color(0xFF2DBD3A);
+  static const _escFaceLight = Color(0xFF6CD93B);
+
+  RoadModuleStyle _styleSim() => const RoadModuleStyle(
+    ring: _simRimDark,
+    gradient: [_simFaceDark, _simFaceLight],
+  );
+  RoadModuleStyle _styleSen() => const RoadModuleStyle(
+    ring: _senRimDark,
+    gradient: [_senFaceDark, _senFaceLight],
+  );
+  RoadModuleStyle _styleEsc() => const RoadModuleStyle(
+    ring: _escRimDark,
+    gradient: [_escFaceDark, _escFaceLight],
+  );
+
+  // ---------- Nodos del camino ----------
+  List<RoadModuleNode> _buildRoadNodes() {
+    final canEnterAdvanced = (_points ?? 0) >= 75;
+
+    return [
+      const RoadModuleNode(
+        id: 'intro',
+        title: 'Principiantes',
+        icon: Icons.star,
+        status: ModuleStatus.completed,
+      ),
+
+      // Principiante
+      RoadModuleNode(
+        id: 'senales_p',
+        title: 'Señales',
+        icon: Icons.traffic,
+        status: ModuleStatus.available,
+        style: _styleSen(),
+        onTap: () => _pickQuestionsAndStart(
+          nombre: 'Señales',
+          nivelUI: 'Principiante',
+          style: _styleSen(),
         ),
       ),
-    );
+      RoadModuleNode(
+        id: 'sim_p',
+        title: 'Simulaciones',
+        icon: Icons.videogame_asset,
+        status: ModuleStatus.available,
+        style: _styleSim(),
+        onTap: () => _pickQuestionsAndStart(
+          nombre: 'Simulaciones',
+          nivelUI: 'Principiante',
+          style: _styleSim(),
+        ),
+      ),
+      RoadModuleNode(
+        id: 'esc_p',
+        title: 'Escenarios',
+        icon: Icons.landscape,
+        status: ModuleStatus.available,
+        style: _styleEsc(),
+        onTap: () => _pickQuestionsAndStart(
+          nombre: 'Escenarios',
+          nivelUI: 'Principiante',
+          style: _styleEsc(),
+        ),
+      ),
+
+      // Gate Avanzados (muestra alerta si no alcanza)
+      RoadModuleNode(
+        id: 'gate_adv',
+        title: canEnterAdvanced ? 'Avanzados' : 'Avanzados (75 pts)',
+        icon: Icons.menu_book,
+        status: canEnterAdvanced ? ModuleStatus.available : ModuleStatus.locked,
+        onTap: canEnterAdvanced ? null : _denyAdvanced,
+      ),
+
+      // Avanzado (si no alcanza, también dispara alerta)
+      RoadModuleNode(
+        id: 'senales_a',
+        title: 'Señales',
+        icon: Icons.traffic_outlined,
+        status: canEnterAdvanced ? ModuleStatus.available : ModuleStatus.locked,
+        style: _styleSen(),
+        onTap: canEnterAdvanced
+            ? () => _pickQuestionsAndStart(
+          nombre: 'Señales',
+          nivelUI: 'Avanzado',
+          style: _styleSen(),
+        )
+            : _denyAdvanced,
+      ),
+      RoadModuleNode(
+        id: 'sim_a',
+        title: 'Simulaciones',
+        icon: Icons.videogame_asset_outlined,
+        status: canEnterAdvanced ? ModuleStatus.available : ModuleStatus.locked,
+        style: _styleSim(),
+        onTap: canEnterAdvanced
+            ? () => _pickQuestionsAndStart(
+          nombre: 'Simulaciones',
+          nivelUI: 'Avanzado',
+          style: _styleSim(),
+        )
+            : _denyAdvanced,
+      ),
+      RoadModuleNode(
+        id: 'esc_a',
+        title: 'Escenarios',
+        icon: Icons.landscape_outlined,
+        status: canEnterAdvanced ? ModuleStatus.available : ModuleStatus.locked,
+        style: _styleEsc(),
+        onTap: canEnterAdvanced
+            ? () => _pickQuestionsAndStart(
+          nombre: 'Escenarios',
+          nivelUI: 'Avanzado',
+          style: _styleEsc(),
+        )
+            : _denyAdvanced,
+      ),
+    ];
   }
 
   @override
@@ -392,9 +398,9 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
     return Scaffold(
       body: Stack(
         children: [
-          // CONTENIDO PRINCIPAL
           Column(
             children: [
+              // Header
               Container(
                 padding: const EdgeInsets.fromLTRB(20, 50, 20, 20),
                 color: const Color(0xFF1976D2),
@@ -406,15 +412,13 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text(
-                          'Modulos',
+                          'Módulos',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-
-                        // --- chip de puntos + refresh + perfil (con avatar) ---
                         Row(
                           children: [
                             Container(
@@ -454,7 +458,7 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
                             ),
                             const SizedBox(width: 4),
 
-                            // --- Botón Perfil con avatar (círculo) ---
+                            // PERFIL — tap
                             Container(
                               padding: const EdgeInsets.all(4),
                               decoration: BoxDecoration(
@@ -471,7 +475,6 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
                                   );
                                   if (res != AuthPromptResult.proceed) return;
 
-                                  // Navega al perfil, y al volver refresca avatar (por si lo cambió)
                                   await Navigator.of(context).push(
                                     fadeRoute(const ProfileScreen()),
                                   );
@@ -516,89 +519,22 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
                   ],
                 ),
               ),
+
+              // Camino
               Expanded(
-                child: SingleChildScrollView(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const SizedBox(height: 40),
-
-                        // PRINCIPIANTES
-                        Column(
-                          children: [
-                            const Text(
-                              'PRINCIPIANTES',
-                              style: TextStyle(
-                                color: Color(0xFF1976D2),
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            CoinButton(
-                              icon: Icons.star,
-                              size: 86,
-                              rimDark: const Color(0xFF0D47A1),
-                              rimLight: const Color(0xFF90CAF9),
-                              faceDark: const Color(0xFF1976D2),
-                              faceLight: const Color(0xFF64B5F6),
-                              depth: 8.0,
-                              onTap: () {
-                                global_identifier.counter = 0;
-                                _togglePrincipianteSubmodulos();
-                              },
-                            ),
-                            if (_showPrincipianteSubmodulos)
-                              _buildSubmodulos('Principiante'),
-                          ],
-                        ),
-
-                        const SizedBox(height: 50),
-
-                        // AVANZADOS
-                        Column(
-                          children: [
-                            Text(
-                              'AVANZADOS',
-                              style: TextStyle(
-                                color: canEnterAdvanced
-                                    ? const Color(0xFF1976D2)
-                                    : Colors.grey,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            CoinButton(
-                              icon: Icons.menu_book,
-                              size: 86,
-                              rimDark: canEnterAdvanced ? const Color(0xFFB57A00) : Colors.grey.shade600,
-                              rimLight: canEnterAdvanced ? const Color(0xFFFFE082) : Colors.grey.shade400,
-                              faceDark: canEnterAdvanced ? const Color(0xFFF4C23A) : Colors.grey.shade500,
-                              faceLight: canEnterAdvanced ? const Color(0xFFFFF3A0) : Colors.grey.shade300,
-                              depth: 8.0,
-                              onTap: () async {
-                                global_identifier.counter = 1;
-                                await _tryToggleAvanzadoSubmodulos();
-                              },
-                            ),
-                            if (_showAvanzadoSubmodulos)
-                              _buildSubmodulos('Avanzado'),
-                          ],
-                        ),
-
-                        const SizedBox(height: 40),
-                      ],
-                    ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: RoadModulePathView(
+                    nodes: _buildRoadNodes(),
+                    spacing: 140,
+                    nodeSize: 76,
                   ),
                 ),
               ),
             ],
           ),
 
-          //  MASCOTA FLOTANTE
+          // Mascota
           Positioned(
             bottom: 20,
             right: 20,
@@ -606,15 +542,9 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
               state: _mascotState,
               size: 200,
               onTap: () {
-                setState(() {
-                  _mascotState = MascotState.celebrating;
-                });
+                setState(() => _mascotState = MascotState.celebrating);
                 Future.delayed(const Duration(seconds: 2), () {
-                  if (mounted) {
-                    setState(() {
-                      _mascotState = MascotState.idle;
-                    });
-                  }
+                  if (mounted) setState(() => _mascotState = MascotState.idle);
                 });
               },
             ),
@@ -625,31 +555,38 @@ class _MenuState extends State<Menu> with SingleTickerProviderStateMixin {
   }
 }
 
-/// Señal de tránsito circular (borde rojo y fondo blanco) para 5/10/15
+/// Señal circular para 5/10/15 — usa color del módulo
 class _TrafficCircleSign extends StatelessWidget {
   final String text;
   final VoidCallback onTap;
-  const _TrafficCircleSign({required this.text, required this.onTap});
+  final Color borderColor;
+  const _TrafficCircleSign({
+    required this.text,
+    required this.onTap,
+    required this.borderColor,
+  });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 44,
-        height: 44,
+        width: 48,
+        height: 48,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: Colors.white,
-          border: Border.all(color: const Color(0xFFD32F2F), width: 5),
-          boxShadow: const [
-            BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 3)),
-          ],
+          border: Border.all(color: borderColor, width: 5),
+          boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 3))],
         ),
         alignment: Alignment.center,
         child: Text(
           text,
-          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Colors.black87),
+          style: const TextStyle(
+            fontWeight: FontWeight.w900,
+            fontSize: 15,
+            color: Colors.black87,
+          ),
         ),
       ),
     );
