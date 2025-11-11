@@ -56,7 +56,7 @@ Future<void> showLessonSummaryDialog(
     builder: (ctx) {
       return StatefulBuilder(
         builder: (ctx, setState) {
-          Future<void> _finalizar() async {
+          Future<void> finalizar() async {
             if (syncing || synced) return;
 
             // 🟡 Invitado: no guarda, muestra mensaje con opciones
@@ -156,7 +156,7 @@ Future<void> showLessonSummaryDialog(
                 child: Text(retryLabel),
               ),
               ElevatedButton(
-                onPressed: syncing ? null : _finalizar,
+                onPressed: syncing ? null : finalizar,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF1E88E5),
                   foregroundColor: Colors.white,

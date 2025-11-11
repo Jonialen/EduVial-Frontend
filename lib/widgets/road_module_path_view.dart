@@ -39,7 +39,7 @@ class RoadModuleNode {
 class _NodeCoin extends StatelessWidget {
   final RoadModuleNode node;
   final double size;
-  const _NodeCoin({required this.node, this.size = 76, Key? key}) : super(key: key);
+  const _NodeCoin({required this.node, this.size = 76});
 
   // Defaults azules solo si NO hay style
   static const _blueDark = Color(0xFF1565C0);

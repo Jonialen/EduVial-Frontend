@@ -222,6 +222,8 @@ class _CoinButtonState extends State<CoinButton> {
 
 // Ejemplo de uso:
 class ExampleUsage extends StatelessWidget {
+  const ExampleUsage({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(

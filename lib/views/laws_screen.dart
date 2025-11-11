@@ -464,7 +464,7 @@ class _LawsScreenState extends State<LawsScreen> {
                 category: cat,
                 text: txt.isNotEmpty ? txt : '(sin resumen)',
               );
-            }).toList(),
+            }),
           ],
         ),
       ),

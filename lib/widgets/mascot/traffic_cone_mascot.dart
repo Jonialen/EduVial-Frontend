@@ -594,8 +594,11 @@ class _CautionPainterCone extends CustomPainter {
       final a = (-math.pi / 2) + i * 2 * math.pi / 3;
       final x = r * math.cos(a);
       final y = r * math.sin(a);
-      if (i == 0) path.moveTo(x, y);
-      else path.lineTo(x, y);
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
     }
     path.close();
     return path;

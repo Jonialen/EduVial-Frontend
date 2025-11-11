@@ -15,7 +15,6 @@ import 'package:eduvial/config/constants.dart';           // endpoints avatar
 
 import 'package:eduvial/utils/page_transitions.dart';
 import 'package:eduvial/services/guest_helper.dart'; // requireAuthOrAlert
-import 'package:eduvial/widgets/mascot/traffic_cone_mascot.dart' hide MascotState;
 import 'package:eduvial/widgets/mascot/traffic_mascot.dart';
 import 'package:eduvial/widgets/road_module_path_view.dart';
 
@@ -536,11 +535,11 @@ class _MenuState extends State<Menu> {
 
           // Mascota
           Positioned(
-            bottom: 20,
+            bottom: 60,
             right: 20,
             child: TrafficMascot(
               state: _mascotState,
-              size: 200,
+              size: 170,
               onTap: () {
                 setState(() => _mascotState = MascotState.celebrating);
                 Future.delayed(const Duration(seconds: 2), () {

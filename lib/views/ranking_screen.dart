@@ -17,7 +17,6 @@ import 'package:eduvial/widgets/ranking_trophy_footer.dart';
 
 // 🔥 Nuevo: servicios de racha
 import 'package:eduvial/services/streak_service.dart';
-import 'package:eduvial/models/streak.dart';
 
 const Color kAccentBlue = Color(0xFF3C8CE7);
 const Color kLightBlue = Color(0xFF89CFF0);
@@ -41,7 +40,7 @@ class _RankingScreenState extends State<RankingScreen> {
     Icons.military_tech
   ];
 
-  int? selectedLimit = null;
+  int? selectedLimit;
   late final RankingService service = RankingService(widget.token);
   late Future<_RankingData> futureData;
 
@@ -95,7 +94,7 @@ class _RankingScreenState extends State<RankingScreen> {
     for (final s in streakList) {
       var value = s.currentStreak;          // ya viene normalizado por el modelo
       if (s.maxStreak != null) {
-        value = value.clamp(0, s.maxStreak!) as int;
+        value = value.clamp(0, s.maxStreak!);
       } else {
         if (value < 0) value = 0;           // por si acaso
       }
@@ -192,7 +191,7 @@ class _RankingScreenState extends State<RankingScreen> {
     final int myBackendPoints = data.me?.points ?? 0;
     final bool meHasPoints = myBackendPoints > 0;
     final int myGlobalPos =
-    (data.me?.position ?? 0) > 0 && meHasPoints ? (data.me!.position!) : 0;
+    (data.me?.position ?? 0) > 0 && meHasPoints ? (data.me!.position) : 0;
 
     return Column(
       children: [
